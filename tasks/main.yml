@@ -1,0 +1,25 @@
+---
+# tasks file for docker-web-stack
+
+# - include_tasks: tasks/files.yml
+
+- set_fact:
+    nginx_ssl: false
+
+- include_tasks: tasks/templates.yml
+
+- include_tasks: tasks/services.yml
+
+- include_tasks: tasks/additional-user.yml
+  when: app_install_database and app_install_mailserver
+
+- include_tasks: tasks/ssl.yml
+  when: app_enable_ssl
+
+- name: Reload nginx
+  become: true
+  shell: docker exec nginx nginx -s reload
+
+- name: Restart php-fpm
+  become: true
+  shell: docker restart php{{ php_version }}-fpm

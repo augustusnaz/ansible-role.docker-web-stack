@@ -1,0 +1,23 @@
+---
+
+- name: Create the project directory
+  file:
+    path: "{{ project_url }}"
+    state: directory
+    mode: '0755'
+
+- name: Copy project files
+  copy:
+    src: "{{ item }}"
+    dest: "{{ project_url }}/"
+    directory_mode: yes
+  with_items:
+    - certbot
+    - docker-entrypoint-initdb.d
+    - nginx
+    - php-fpm
+    - redis
+    - .gitignore
+    - docker-compose.yml
+    - init-letsencrypt.sh
+

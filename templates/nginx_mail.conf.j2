@@ -1,0 +1,23 @@
+server {
+	listen 80;
+    listen [::]:80;
+
+	server_name 	{{ mailserver_hostname }}.{{ app_domain }};
+
+    error_log 		/var/log/nginx/error.log;
+    access_log 		/var/log/nginx/access.log;
+
+	{% if app_backend == false %}
+	{% include 'mailservices_loc.conf.j2' %}
+	{% endif %}
+
+    location ~ /\.ht {
+        deny all;
+    }
+
+    location /.well-known/acme-challenge/ {
+    	root /var/www/certbot;
+        log_not_found off;
+    }
+
+}

@@ -1,0 +1,19 @@
+---
+
+
+- name: Init letsencrypt
+  become: true
+  shell:
+    chdir: "{{ project_url }}"
+    cmd: ./init-letsencrypt.sh
+  register: output
+
+- debug:
+    msg: "{{ output.stdout_lines }}"
+
+# So that nginx templates inclode ssl certs
+- set_fact:
+    nginx_ssl: true
+    cert_domain: "{% if app_subdomains.0 != '' %}{{ app_subdomains.0 }}.{% endif %}{{ app_domain }}" # takes first subdomain. Must be consistent with line 8 of `init-letsencrypt.sh`
+
+- include_tasks: tasks/templates-nginx.yml

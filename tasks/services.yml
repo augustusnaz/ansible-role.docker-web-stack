@@ -1,0 +1,19 @@
+
+# - name: Tear down existing services
+#   docker_compose:
+#     project_src: "{{ project_url }}"
+#     state: absent
+
+- name: Create and start services
+  docker_compose:
+    project_src: "{{ project_url }}"
+  register: output
+
+# - debug:
+#     var: output
+
+- name: Run `docker-compose up`
+  docker_compose:
+    project_src: "{{ project_url }}"
+    # build: no
+  register: output

@@ -1,0 +1,19 @@
+
+location /{% if app_backend %}mail/{% endif %}{
+	proxy_pass http://mail.mailserver/;
+	proxy_set_header Host $host;
+	proxy_set_header X-Real-IP $remote_addr;
+	proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+}
+location /webmail/ {
+	proxy_pass http://mail.webmail/;
+	proxy_set_header Host $host;
+	proxy_set_header X-Real-IP $remote_addr;
+	proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+}
+location /postfix/ {
+	proxy_pass http://mail.postfixadmin/;
+	proxy_set_header Host $host;
+	proxy_set_header X-Real-IP $remote_addr;
+	proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+}

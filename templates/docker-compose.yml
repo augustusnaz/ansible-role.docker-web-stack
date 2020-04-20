@@ -1,0 +1,273 @@
+version: "3.1"
+
+networks:
+  frontend:
+    driver: {{ app_container_networks_driver }}
+  backend:
+    driver: {{ app_container_networks_driver }}
+
+
+volumes:
+  mariadb:
+    driver: {{ volumes_driver }}
+  phpmyadmin:
+    driver: {{ volumes_driver }}
+
+
+services:
+
+### Certbot ################################################
+  certbot:
+    build:
+      context: ./certbot
+    container_name: certbot
+    volumes:
+      - {{ data_path_host }}/certs:/certs
+      - {{ data_path_host }}/letsencrypt:/etc/letsencrypt
+      - {{ log_path }}/letsencrypt:/var/log/letsencrypt
+      - {{ data_path_host }}/certbot/www:/var/www/certbot
+    restart: {{ app_container_restart_mode }}
+    # ports:
+    #   - {{ certbot_port }}:0000
+    environment:
+      # - WEBROOT=/path/to/web_root
+      - LOGFILE=/var/log/letsencrypt/certrenewal.log
+      - DEBUG={{ certbot_debug }}
+      - STAGING={{ certbot_staging }}
+      - DOMAINS="{% for subdomain in app_subdomains %}{% if subdomain != '' %}{{ subdomain }}.{% endif %}{{ app_domain }}, {% endfor %}"
+      - EMAIL={{ certbot_email }}
+      - CONCAT={{ certbot_concat }}
+      - HEALTH_CHECK_URL={{ app_domain }}:{{ certbot_health_check_port }}
+      - PREFERRED_CHALLENGES={{ certbot_preferred_challenges }}
+    networks:
+      - frontend
+
+### MariaDB ##############################################
+{% if app_install_database or app_install_mailserver %}
+  mariadb:
+    image: mariadb:10.4
+    restart: {{ app_container_restart_mode }}
+    container_name: mariadb
+    command: ['--character-set-server=utf8mb4', '--collation-server=utf8mb4_unicode_ci']
+    volumes:
+      - {{ data_path_host }}/mariadb:/var/lib/mysql
+      - ${MARIADB_ENTRYPOINT_INITDB}:/docker-entrypoint-initdb.d
+    ports:
+      - {{ database_port }}:3306
+    networks:
+      - backend
+    environment:
+      - TZ={{ app_timezone }}
+      - MYSQL_ROOT_PASSWORD={{ database_root_password }}
+      - MYSQL_USER={{ database_user }}
+      - MYSQL_PASSWORD={{ database_password }}
+      - MYSQL_DATABASE={% if app_install_mailserver %}{{ mailserver_database }}{% else %}{{ database }}{% endif %}
+{% endif %}
+
+### NGINX ##############################################
+  nginx:
+    image: nginx:alpine
+    # restart: {{ app_container_restart_mode }}
+    container_name: nginx
+    volumes:
+      - ./nginx/sites/:/etc/nginx/conf.d/:ro
+      - {{ log_path }}/nginx/:/var/log/nginx/
+      - {{ data_path_host }}/letsencrypt:/etc/letsencrypt
+      - {{ data_path_host }}/certbot/www:/var/www/certbot
+      - {{ app_code_path_host }}:/var/www/html
+    ports:
+      - {{ app_host_http_port }}:80
+      - {{ app_host_https_port }}:443
+    depends_on: [php-fpm{% if app_install_database or app_install_mailserver %}, phpmyadmin{% endif %}{% if app_install_mailserver %}, mailserver, rainloop, postfixadmin{% endif %}]
+    networks:
+      - frontend
+      - backend
+
+# ### PHP-FPM ##############################################
+  php-fpm:
+    build:
+      context: ./php-fpm
+      args:
+        - CHANGE_SOURCE=${CHANGE_SOURCE}
+        - LARADOCK_PHP_VERSION=${PHP_VERSION}
+        - LARADOCK_PHALCON_VERSION=${PHALCON_VERSION}
+        - INSTALL_BZ2=${PHP_FPM_INSTALL_BZ2}
+        - INSTALL_GMP=${PHP_FPM_INSTALL_GMP}
+        - INSTALL_XDEBUG=${PHP_FPM_INSTALL_XDEBUG}
+        - INSTALL_PCOV=${PHP_FPM_INSTALL_PCOV}
+        - INSTALL_PHPDBG=${PHP_FPM_INSTALL_PHPDBG}
+        - INSTALL_BLACKFIRE=${INSTALL_BLACKFIRE}
+        - INSTALL_SSH2=${PHP_FPM_INSTALL_SSH2}
+        - INSTALL_SOAP=${PHP_FPM_INSTALL_SOAP}
+        - INSTALL_XSL=${PHP_FPM_INSTALL_XSL}
+        - INSTALL_SMB=${PHP_FPM_INSTALL_SMB}
+        - INSTALL_IMAP=${PHP_FPM_INSTALL_IMAP}
+        - INSTALL_MONGO=${PHP_FPM_INSTALL_MONGO}
+        - INSTALL_AMQP=${PHP_FPM_INSTALL_AMQP}
+        - INSTALL_CASSANDRA=${PHP_FPM_INSTALL_CASSANDRA}
+        - INSTALL_GEARMAN=${PHP_FPM_INSTALL_GEARMAN}
+        - INSTALL_MSSQL=${PHP_FPM_INSTALL_MSSQL}
+        - INSTALL_BCMATH=${PHP_FPM_INSTALL_BCMATH}
+        - INSTALL_PHPREDIS=${PHP_FPM_INSTALL_PHPREDIS}
+        - INSTALL_MEMCACHED=${PHP_FPM_INSTALL_MEMCACHED}
+        - INSTALL_OPCACHE=${PHP_FPM_INSTALL_OPCACHE}
+        - INSTALL_EXIF=${PHP_FPM_INSTALL_EXIF}
+        - INSTALL_AEROSPIKE=${PHP_FPM_INSTALL_AEROSPIKE}
+        - INSTALL_OCI8=${PHP_FPM_INSTALL_OCI8}
+        - INSTALL_MYSQLI=${PHP_FPM_INSTALL_MYSQLI}
+        - INSTALL_PGSQL=${PHP_FPM_INSTALL_PGSQL}
+        - INSTALL_PG_CLIENT=${PHP_FPM_INSTALL_PG_CLIENT}
+        - INSTALL_POSTGIS=${PHP_FPM_INSTALL_POSTGIS}
+        - INSTALL_INTL=${PHP_FPM_INSTALL_INTL}
+        - INSTALL_GHOSTSCRIPT=${PHP_FPM_INSTALL_GHOSTSCRIPT}
+        - INSTALL_LDAP=${PHP_FPM_INSTALL_LDAP}
+        - INSTALL_PHALCON=${PHP_FPM_INSTALL_PHALCON}
+        - INSTALL_SWOOLE=${PHP_FPM_INSTALL_SWOOLE}
+        - INSTALL_TAINT=${PHP_FPM_INSTALL_TAINT}
+        - INSTALL_IMAGE_OPTIMIZERS=${PHP_FPM_INSTALL_IMAGE_OPTIMIZERS}
+        - INSTALL_IMAGEMAGICK=${PHP_FPM_INSTALL_IMAGEMAGICK}
+        - INSTALL_CALENDAR=${PHP_FPM_INSTALL_CALENDAR}
+        - INSTALL_FAKETIME=${PHP_FPM_INSTALL_FAKETIME}
+        - INSTALL_IONCUBE=${PHP_FPM_INSTALL_IONCUBE}
+        - INSTALL_APCU=${PHP_FPM_INSTALL_APCU}
+        - INSTALL_CACHETOOL=${PHP_FPM_INSTALL_CACHETOOL}
+        - INSTALL_YAML=${PHP_FPM_INSTALL_YAML}
+        - INSTALL_RDKAFKA=${PHP_FPM_INSTALL_RDKAFKA}
+        - INSTALL_GETTEXT=${PHP_FPM_INSTALL_GETTEXT}
+        - INSTALL_ADDITIONAL_LOCALES=${PHP_FPM_INSTALL_ADDITIONAL_LOCALES}
+        - INSTALL_MYSQL_CLIENT=${PHP_FPM_INSTALL_MYSQL_CLIENT}
+        - INSTALL_PING=${PHP_FPM_INSTALL_PING}
+        - INSTALL_SSHPASS=${PHP_FPM_INSTALL_SSHPASS}
+        - INSTALL_MAILPARSE=${PHP_FPM_INSTALL_MAILPARSE}
+        - INSTALL_PCNTL=${PHP_FPM_INSTALL_PCNTL}
+        - ADDITIONAL_LOCALES=${PHP_FPM_ADDITIONAL_LOCALES}
+        - INSTALL_FFMPEG=${PHP_FPM_FFMPEG}
+        - INSTALL_WKHTMLTOPDF=${PHP_FPM_INSTALL_WKHTMLTOPDF}
+        - INSTALL_XHPROF=${PHP_FPM_INSTALL_XHPROF}
+        - PUID=${PHP_FPM_PUID}
+        - PGID=${PHP_FPM_PGID}
+        - LOCALE=${PHP_FPM_DEFAULT_LOCALE}
+        - http_proxy
+        - https_proxy
+        - no_proxy
+    container_name: php${PHP_VERSION}-fpm
+    volumes:
+      - ./php-fpm/php${PHP_VERSION}.ini:/usr/local/etc/php/php.ini
+      # - {{ app_code_path_host }}:{{ app_code_path_container }}{{ app_code_container_flag }}
+      - {{ app_code_path_host }}:{{ app_code_path_container }}
+    expose:
+      - "9000"
+    extra_hosts:
+      - dockerhost:{{ docker_host_ip }}
+    environment:
+      - PHP_IDE_CONFIG=${PHP_IDE_CONFIG}
+      - DOCKER_TLS_VERIFY=1
+      - DOCKER_TLS_CERTDIR=/certs
+      - DOCKER_CERT_PATH=/certs/client
+      - FAKETIME=${PHP_FPM_FAKETIME}
+    networks:
+      - backend
+
+### phpMyAdmin ###########################################
+{% if app_install_database or app_install_mailserver %}
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: phpmyadmin
+    environment:
+      PMA_HOST: mariadb
+    depends_on:
+      - mariadb
+    restart: {{ app_container_restart_mode }}
+    networks:
+      - frontend
+      - backend
+{% endif %}
+
+# ### Redis ################################################
+  redis:
+    build: ./redis
+    container_name: redis
+    volumes:
+      - {{ data_path_host }}/redis:/data
+    ports:
+      - {{ redis_port }}:6379
+    networks:
+      - backend
+
+
+### Mail ##############################################
+  mailserver:
+    container_name: mailserver
+    image: hardware/mailserver:{{ mailserver_docker_tag }}
+    restart: {{ app_container_restart_mode }}
+    domainname: {{ app_domain }}
+    hostname: {{ mailserver_hostname }}
+    ports:
+      - "25:25"       # SMTP                - Required
+      - "110:110"     # POP3       STARTTLS - Optional - For webmails/desktop clients
+      - "143:143"     # IMAP       STARTTLS - Optional - For webmails/desktop clients
+      - "465:465"     # SMTPS      SSL/TLS  - Optional - Enabled for compatibility reason, otherwise disabled
+      - "587:587"     # Submission STARTTLS - Optional - For webmails/desktop clients
+      - "993:993"     # IMAPS      SSL/TLS  - Optional - For webmails/desktop clients
+      - "995:995"     # POP3S      SSL/TLS  - Optional - For webmails/desktop clients
+      - "4190:4190"   # SIEVE      STARTTLS - Optional - Recommended for mail filtering
+    environment:
+      - DBNAME={{ mailserver_database }}
+      - DBUSER={{ database_user }}
+      - DBPASS={{ database_password }}
+      - RSPAMD_PASSWORD={{ rspamd_password }}
+      # - ADD_DOMAINS=aa.tld, www.bb.tld...      # Add additional domains separated by commas (needed for dkim keys etc.)
+      - DEBUG_MODE={{ mailserver_debug }}
+      - ENABLE_POP3={{ mailserver_enable_pop3 }}
+      - ENABLE_FETCHMAIL={{ mailserver_enable_fetchmail }}
+      - DISABLE_RATELIMITING={{ mailserver_disable_ratelimiting }}
+      - DISABLE_CLAMAV={{ mailserver_disable_clamav }}
+      - DISABLE_SIGNING={{ mailserver_disable_signing }}
+      # - =true                    # Disable virus scanning
+      # - =true                   # Disable DKIM/ARC signing
+      - DISABLE_GREYLISTING={{ mailserver_disable_greylisting }}
+      #
+      # Full list : https://github.com/hardware/mailserver#environment-variables
+      #
+    volumes:
+      - {{ data_path_host }}/mail:/var/mail
+    depends_on:
+      - mariadb
+      - redis
+    networks:
+      - frontend
+      - backend
+
+
+  # https://github.com/hardware/postfixadmin
+  # http://postfixadmin.sourceforge.net/
+  # Configuration : https://github.com/hardware/mailserver/wiki/Postfixadmin-initial-configuration
+  postfixadmin:
+    container_name: postfixadmin
+    image: hardware/postfixadmin
+    restart: {{ app_container_restart_mode }}
+    domainname: {{ app_domain }}
+    hostname: {{ mailserver_hostname }}
+    environment:
+      - DBPASS={{ database_password }}
+    depends_on:
+      - mailserver
+      - mariadb
+    networks:
+      - frontend
+      - backend
+
+  # Configuration : https://github.com/hardware/mailserver/wiki/Rainloop-initial-configuration
+  rainloop:
+    container_name: rainloop
+    image: hardware/rainloop
+    restart: {{ app_container_restart_mode }}
+    volumes:
+      - {{ data_path_host }}/rainloop:/rainloop/data
+    depends_on:
+      - mailserver
+      - mariadb
+    networks:
+      - frontend
+      - backend
+

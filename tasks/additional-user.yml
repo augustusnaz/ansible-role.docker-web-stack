@@ -1,0 +1,16 @@
+---
+
+- set_fact:
+    additional_database: "{% if app_install_mailserver %}{{ database }}{% else %}{{ mailserver_database }}{% endif %}"
+
+# - name: Create database {{ additional_database }}
+#   shell: |
+#     docker exec mariadb mysql -u{{ database_user }} -p{{ database_root_password }} -e "CREATE DATABASE IF NOT EXISTS {{ additional_database }}"
+
+  # shell: |
+  #   docker exec mariadb mysql -uroot -e "GRANT USAGE ON *.* TO  '{{ database_user }}'@'%' IDENTIFIED BY '{{ database_password }}'"
+    # docker exec mariadb mysql -u{{ database_user }} -p{{ database_root_password }} -e "GRANT ALL PRIVILEGES ON {{ additional_database }}.* TO '{{ database_user }}'@'%' IDENTIFIED BY '{{ database_password }}'"
+  #   docker exec mariadb mysql -uroot -e "GRANT ALL PRIVILEGES ON {{ additional_database }}.* TO '{{ database_user }}'@'%'"
+  # docker exec mariadb mysql -u{{ database_user }} -p{{ database_root_password }} -e "FLUSH PRIVILEGES"
+    # docker exec mariadb mysql -u{{ database_user }} -p{{ database_root_password }} -e "ALTER ROLE {{ additional_database }} ADD MEMBER {{ database_user }}"
+

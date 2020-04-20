@@ -1,0 +1,204 @@
+---
+# defaults file for docker-web-stack
+
+
+# Domain
+app_domain: example.com
+
+# Subdomains
+# Empty string allows `example.com`
+app_subdomains: [ '', 'www' ]
+
+# You may add flags to the path `:cached`, `:delegated`. When using Docker Sync add `:nocopy`
+app_code_container_flag: ":cached"
+
+# App timezone
+app_timezone: UTC
+
+# Use ssl
+app_enable_ssl: true
+
+# HTTP ports
+app_host_http_port: 80
+app_host_https_port: 443
+
+# All Networks driver
+app_container_networks_driver: bridge
+
+# Docker containers restart mode
+# https://docs.docker.com/compose/compose-file/#restart
+app_container_restart_mode: unless-stopped
+
+# Install database
+app_install_database: false
+
+# Install mailserver
+app_install_mailserver: true
+
+# Rspamd WebUI password (required)
+rspamd_password: null
+
+
+### App Paths #################################################
+
+project_url: /mnt/docker
+
+# Point to the path of your applications code on your host
+app_code_path_host: /var/www
+
+# Point to where the `app_code_path_host` should be in the container
+app_code_path_container: /var/www
+
+# Relative to `app_code_path_container`
+app_code_dir: html
+
+# Choose storage path on your hosts. For all storage systems. Relative or absolute to `project_url`
+data_path_host: ./data
+
+# Log path on your hosts. Relative or absolute to `project_url`
+log_path: ./log
+
+
+### Backend ###############################################
+
+# App backend subdomain
+# Takes a string or set to `false` to disable. Must NOT be included in `app_subdomains`
+app_backend: admin
+
+# Relative to `app_code_path_container`
+app_backend_code_dir: admin.example.com
+
+
+
+
+### Certbot ###############################################
+certbot_debug: false
+certbot_staging: false
+# certbot_domains: "www.moirei.com, mail.moirei.com, moirei.com"
+certbot_email: admin@example.com
+certbot_concat: false
+certbot_health_check_port: 80
+# A sorted, comma delimited list of the preferred challenge to use during authorization
+# with the most preferred challenge listed first
+# (eg. "dns" or "tls-alpn-01,http,dns"). NOTE: tls-alpn-01 challenge is yet not supported by certbot 0.31.0
+certbot_preferred_challenges: http-01
+certbot_port: 443
+
+
+### Drivers ################################################
+# All volumes driver
+volumes_driver: local
+
+
+### Databse ########################################
+database: db
+database_user: db_user
+database_password: root
+database_port: 3306
+database_root_password: docker
+
+
+### Docker Host IP ########################################
+# Enter your Docker Host IP (will be appended to /etc/hosts). Default is `10.0.75.1`
+docker_host_ip: "10.0.75.1"
+
+
+### Environment ###########################################
+# If you need to change the sources (i.e. to China), set change_source to true
+change_source: false
+
+
+### PHP Version ###########################################
+# Select a PHP version of the Workspace and PHP-FPM containers (Does not apply to HHVM).
+# Accepted values: 7.4 - 7.3 - 7.2 - 7.1 - 7.0 - 5.6
+php_version: 7.3
+
+
+### Mail ###############################################
+# Your mailserver hostname (eg. mail for mail.example.com)
+# Must NOT be included in `app_subdomains`
+mailserver_hostname: mail
+
+# Mailserver version
+# 1.1-stable : Stable version (v1.1-stable github branch)
+# 1.1-latest : Latest development build (master github branch)
+# Latest development builds have been validated through
+# the CI automation system but they are not meant for
+# deployment in production.
+# 1.1-stable and 1.1-latest are rebuilt weekly on the docker hub but if you
+# have any problem with a new build you can switch to 1.1-stable-fallback
+# The fallback tag is rebuilt monthly.
+mailserver_docker_tag: 1.1-stable
+mailserver_debug: true                     # Enable Postfix, Dovecot, Rspamd and Unbound verbose logging
+mailserver_enable_pop3: true               # Enable POP3 protocol
+mailserver_enable_fetchmail: true          # Enable fetchmail forwarding
+mailserver_disable_ratelimiting: false     # Enable ratelimiting policy
+mailserver_disable_clamav: true            # Disable virus scanning
+mailserver_disable_signing: true           # Disable DKIM/ARC signing
+mailserver_disable_greylisting: true       # Disable greylisting policy
+mailserver_database: postfix
+
+
+### PHP_FPM ###############################################
+php_fpm_install_bcmath: true
+php_fpm_install_mysqli: true
+php_fpm_install_intl: true
+php_fpm_install_imagemagick: true
+php_fpm_install_opcache: true
+php_fpm_install_image_optimizers: true
+php_fpm_install_phpredis: true
+php_fpm_install_memcached: false
+php_fpm_install_bz2: false
+php_fpm_install_gmp: false
+php_fpm_install_xdebug: false
+php_fpm_install_pcov: false
+php_fpm_install_xhprof: false
+php_fpm_install_phpdbg: false
+php_fpm_install_smb: false
+php_fpm_install_imap: false
+php_fpm_install_mongo: false
+php_fpm_install_amqp: false
+php_fpm_install_cassandra: false
+php_fpm_install_gearman: false
+php_fpm_install_mssql: false
+php_fpm_install_ssh2: false
+php_fpm_install_soap: false
+php_fpm_install_xsl: false
+php_fpm_install_exif: false
+php_fpm_install_aerospike: false
+php_fpm_install_oci8: false
+php_fpm_install_pgsql: false
+php_fpm_install_ghostscript: false
+php_fpm_install_ldap: false
+php_fpm_install_phalcon: false
+php_fpm_install_swoole: false
+php_fpm_install_taint: false
+php_fpm_install_pg_client: false
+php_fpm_install_postgis: false
+php_fpm_install_pcntl: false
+php_fpm_install_calendar: false
+php_fpm_install_faketime: false
+php_fpm_install_ioncube: false
+php_fpm_install_rdkafka: false
+php_fpm_install_gettext: false
+php_fpm_faketime: -0
+php_fpm_install_apcu: false
+php_fpm_install_cachetool: false
+php_fpm_install_yaml: false
+php_fpm_install_additional_locales: false
+php_fpm_install_mysql_client: false
+php_fpm_install_ping: false
+php_fpm_install_sshpass: false
+php_fpm_install_mailparse: false
+php_fpm_install_wkhtmltopdf: false
+php_fpm_ffmpeg: false
+php_fpm_additional_locales: "en_au.utf-8 es_es.utf-8 fr_fr.utf-8"
+php_fpm_default_locale: posix
+
+php_fpm_puid: 1000
+php_fpm_pgid: 1000
+
+
+### REDIS #################################################
+redis_port: 6379
+

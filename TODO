@@ -1,0 +1,16 @@
+
+PHALCON_VERSION??
+ADD_DOMAINS?
+
+
+always clean sites
+create additional user
+enable ssl
+phpmyadmin logs into /
+
+[Important]
+database:
+database_user
+database_password:
+database_root_password
+certbot_email
