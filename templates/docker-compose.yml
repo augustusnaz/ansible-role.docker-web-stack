@@ -370,7 +370,7 @@ services:
       - RELAYHOST={{ mailu_relayhost }}
       - RELAYNETS={{ mailu_relaynets }}
       - RECIPIENT_DELIMITER={{ mailu_recipient_delimiter }}
-      - MESSAGE_SIZE_LIMIT={{ mailu_message_size_limi }}
+      - MESSAGE_SIZE_LIMIT={{ mailu_message_size_limit }}
     volumes:
       - {{ data_path_host }}/mailu/data:/data
       - {{ data_path_host }}/mailu/overrides:/overrides
