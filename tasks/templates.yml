@@ -5,30 +5,12 @@
     src: docker-compose.yml
     dest: "{{ project_url }}/docker-compose.yml"
 
-- name: Template docker compose env
-  template:
-    src: .env.j2
-    dest: "{{ project_url }}/.env"
-
+# - name: Template docker compose env
+#   template:
+#     src: .env.j2
+#     dest: "{{ project_url }}/.env"
 
 - include_tasks: tasks/templates-nginx.yml
-
-# - name: Template {{ app_domain }} nginx conf
-#   template:
-#     src: nginx_web.conf.j2
-#     dest: "{{ project_url }}/nginx/sites/{{ app_domain }}.conf"
-
-# - name: Template {{ mailserver_hostname }}.{{ app_domain }} nginx conf
-#   template:
-#     src: nginx_mail.conf.j2
-#     dest: "{{ project_url }}/nginx/sites/{{ mailserver_hostname }}.{{ app_domain }}.conf"
-#   when: app_install_mailserver
-
-# - name: Template {{ app_backend }}.{{ app_domain }} nginx conf
-#   template:
-#     src: nginx_backend.conf.j2
-#     dest: "{{ project_url }}/nginx/sites/{{ app_backend }}.{{ app_domain }}.conf"
-#   when: app_backend != false
 
 - name: Template init-letsencrypt.sh
   template:

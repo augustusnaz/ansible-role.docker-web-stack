@@ -18,6 +18,5 @@
     - php-fpm
     - redis
     - .gitignore
-    - docker-compose.yml
-    - init-letsencrypt.sh
+    - .env
 

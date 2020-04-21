@@ -9,11 +9,11 @@
     project_src: "{{ project_url }}"
   register: output
 
-# - debug:
-#     var: output
-
-- name: Run `docker-compose up`
+- name: Run 'docker-compose up'
   docker_compose:
     project_src: "{{ project_url }}"
     # build: no
   register: output
+
+- debug:
+    var: output
