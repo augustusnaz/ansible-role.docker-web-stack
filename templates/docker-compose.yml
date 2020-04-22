@@ -178,6 +178,7 @@ services:
     container_name: phpmyadmin
     environment:
       PMA_HOST: mariadb
+      PMA_ABSOLUTE_URI: /phpmyadmin
     depends_on:
       - mariadb
     restart: {{ app_container_restart_mode }}

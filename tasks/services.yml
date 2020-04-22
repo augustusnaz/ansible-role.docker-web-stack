@@ -6,16 +6,20 @@
 #     project_src: "{{ project_url }}"
 #     state: absent
 
+- name: Ensure docker-compose pip module
+  pip: name=docker-compose
+
 - name: Create and start services
+  become: true
   docker_compose:
     project_src: "{{ project_url }}"
   register: output
 
-- name: Run 'docker-compose up'
-  docker_compose:
-    project_src: "{{ project_url }}"
-    # build: no
-  register: output
+# - name: Run 'docker-compose up'
+#   docker_compose:
+#     project_src: "{{ project_url }}"
+#     # build: no
+#   register: output
 
 - debug:
     var: output
