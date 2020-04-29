@@ -34,14 +34,13 @@ app_install_database: false
 
 # Install mail server
 app_install_mailserver: false
-app_install_mailu: false
 
 # Rspamd WebUI password (required)
 rspamd_password: null
 
 # docker-postal version. Accepted values: `alpine`, `ubuntu`
-docker_postal_version: alpine
-postal_secret_key: 9f48b9f1c5c59e3d8ee8716d5ded47e8d482678360b54bc574381ac31143195ef8cf4e7eb1520fbab215efa8d12edf9475c6ba5bd2635244e2f2ab77c45092a3bd84d5cdbeeaba0dead16b556fe1319fdca9ed347219b9c9c14a1922fc2ab881b6af57882f$
+docker_postal_version: ubuntu
+postal_secret_key:
 
 
 ### App Paths #################################################
@@ -101,62 +100,27 @@ database_user: db_user
 database_password: root
 database_port: 3306
 database_root_password: docker
-database_entrypoint_initdb: ./docker-entrypoint-initdb.d  # Absolute or relative to `project_url`
+# database_entrypoint_initdb: ./docker-entrypoint-initdb.d  # Absolute or relative to `project_url`
+database_hostname: mariadb
 
 
 ### Docker Host IP ########################################
 # Enter your Docker Host IP (will be appended to /etc/hosts). Default is `10.0.75.1`
-docker_host_ip: "10.0.75.1"
+# docker_host_ip: "10.0.75.1"
 
 
 
 ### Phalcon Version ###########################################
-# Select a Phalcon version of the Workspace and PHP-FPM containers (Does not apply to HHVM). Accepted values: 3.4.0+
-phalcon_version: 3.4.5
+phalcon_version: 3.4.5                    # Select a Phalcon version of the Workspace and PHP-FPM containers (Does not apply to HHVM). Accepted values: `X.X.X`, `X.X.X+`
 
 
 ### PHP Version ###########################################
-# Select a PHP version of the Workspace and PHP-FPM containers (Does not apply to HHVM).
-# Accepted values: 7.4 - 7.3 - 7.2 - 7.1 - 7.0 - 5.6
-php_version: 7.3
+php_version: 7.3                          # Select a PHP version of the Workspace and PHP-FPM containers (Does not apply to HHVM). Accepted values: `7.4`, `7.3`, `7.2`, `7.1`, `7.0`, `5.6`
 
 
 ### MAIL ###############################################
 mailserver_hostname: mail                 # Your mailserver hostname (eg. mail for mail.example.com). Must NOT be included in `app_subdomains`
 mailserver_database: postal
-
-
-### MAILU ###############################################
-mailu_version: latest
-mailu_hostname: mail
-mailu_admin: true                         # Expose the admin interface (value: true, false)
-mailu_webmail: rainloop                   # Choose which webmail to run if any (values: roundcube, rainloop, none)
-mailu_webdav: radicale                    # Dav server implementation (value: radicale, none)
-mailu_fetchmail_delay: 600                # Fetchmail delay
-mailu_website: http://mail.example.com    # Linked Website URL
-mailu_web_webmail: /webmail               # Path to the webmail if enabled
-mailu_web_admin: /admin                   # Path to the admin interface if enabled
-mailu_sitename: "Example Mail"            # Website name
-mailu_hostnames: mail.example.com,alternative.example.com,yetanother.example.com    # Hostnames for this server, separated with comas
-mailu_postmaster: admin                   # Postmaster local part (will append the main mail domain)
-mailu_recipient_delimiter: +              # Recipient delimiter, character used to delimiter localpart from custom address part. e.g. localpart+custom@domain;tld
-mailu_message_size_limit: 50000000        # Message size limit in bytes. Default: accept messages up to 50MB
-mailu_tls_flavor: cert                    # Choose how secure connections will behave (value: letsencrypt, cert, notls, mail, mail-letsencrypt)
-mailu_relayhost:                          # Will relay all outgoing mails if configured
-mailu_relaynets: 172.16.0.0/12            # Networks granted relay permissions, make sure that you include your Docker. Internal network (default to 172.17.0.0/16)
-mailu_secret_key: ChangeMeChangeMe        # Set to a randomly generated 16 bytes string
-mailu_auth_ratelimit: 10/minute;1000/hour # Authentication rate limit (per source IP address)
-mailu_disable_statistics: False           # Opt-out of statistics, replace with "True" to opt out
-mailu_dmarc_rua: admin                    # DMARC rua email
-mailu_dmarc_ruf: admin                    # DMARC ruf email
-mailu_welcome: False                      # Welcome email, enable and set a topic and body if you wish to send welcome emails to all users.
-mailu_welcome_subject: "Welcome to your new email account"
-mailu_welcome_body: "Welcome to your new email account, if you can read this, then it is configured properly!"
-mailu_init_admin_username: docker
-mailu_init_admin_password: docker
-mailu_password_scheme: SHA512-CRYPT       # Default password scheme used for newly created accounts and changed passwords (value: SHA512-CRYPT, SHA256-CRYPT, MD5-CRYPT, CRYPT)
-mailu_recaptcha_public_key:
-mailu_recaptcha_private_key:
 
 
 ### PHP_FPM ###############################################
@@ -239,3 +203,7 @@ rabbitmq_default_vhost: postal
 ### REDIS #################################################
 redis_port: 6379
 
+
+### Roundcube #############################################
+roundcube_upload_max_filesize: 5M
+roundcube_plugins: archive,zipdownload

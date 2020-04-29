@@ -1,16 +1,19 @@
 ---
 
 - name: Template docker-compose.yml
+  become: true
   template:
     src: docker-compose.yml
     dest: "{{ project_url }}/docker-compose.yml"
 
 - name: Template .env
+  become: true
   template:
     src: .env
     dest: "{{ project_url }}/.env"
 
 - name: Template postal config
+  become: true
   template:
     src: postal.yml
     dest: "{{ project_url }}/postal/postal.yml"
@@ -19,9 +22,44 @@
 - include_tasks: tasks/templates-nginx.yml
 
 - name: Template init-letsencrypt.sh
+  become: true
   template:
     src: init-letsencrypt.sh
     dest: "{{ project_url }}/init-letsencrypt.sh"
     mode: +x
   when: app_enable_ssl
+
+
+- stat:
+    path: "{{ app_code_path_host }}/{{ app_code_dir }}"
+  register: _app_code_dir
+  become: true
+- stat:
+    path: "{{ app_code_path_host }}/{{ app_backend }}"
+  register: _app_backend_dir
+  become: true
+
+- block:
+    - file:
+        path: "{{ app_code_path_host }}/{{ app_code_dir }}"
+        state: directory
+    - set_fact: welcome_title="Docker Web Stack"
+    - name: Template welcome page
+      template:
+        src: welcome.php
+        dest: "{{ app_code_path_host }}/{{ app_code_dir }}/index.php"
+  when: _app_code_dir.stat.exists != true
+  become: true
+
+- block:
+    - file:
+        path: "{{ app_code_path_host }}/{{ app_backend }}"
+        state: directory
+    - set_fact: welcome_title="Docker Web Stack (backend)"
+    - name: Template welcome (backend) page
+      template:
+        src: welcome.php
+        dest: "{{ app_code_path_host }}/{{ app_backend }}/index.php"
+  when: _app_backend_dir.stat.exists != true and app_backend != false
+  become: true
 

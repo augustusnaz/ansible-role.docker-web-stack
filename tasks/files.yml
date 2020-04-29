@@ -2,12 +2,14 @@
 
 
 - name: Create the project directory
+  become: true
   file:
     path: "{{ project_url }}"
     state: directory
     mode: '0755'
 
 - name: Copy project files
+  become: true
   copy:
     src: "{{ item }}"
     dest: "{{ project_url }}/"

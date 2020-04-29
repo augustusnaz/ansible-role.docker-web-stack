@@ -16,7 +16,7 @@ general:
 
 main_db:
   # Specify the connection details for your MySQL database
-  host: mariadb
+  host: {{ database_hostname }}
   username: {{ database_user }}
   password: {{ database_root_password }}
   database: {{ mailserver_database }}
@@ -24,7 +24,7 @@ main_db:
 message_db:
   # Specify the connection details for your MySQL server that will be house the
   # message databases for mail servers.
-  host: mariadb
+  host: {{ database_hostname }}
   username: {{ database_user }}
   password: {{ database_root_password }}
   prefix: postal

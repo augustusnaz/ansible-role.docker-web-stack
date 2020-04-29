@@ -5,11 +5,9 @@ networks:
     driver: {{ app_container_networks_driver }}
   backend:
     driver: {{ app_container_networks_driver }}
-    # ipam:
-    #   driver: default
-    #   config:
-    #   # - subnet:  172.20.0.0/24
-    #   - subnet:  10.103.0.0/16
+    ipam:
+      config:
+        - subnet:  172.20.0.0/16
 
 
 volumes:
@@ -57,14 +55,15 @@ services:
     command: ['--character-set-server=utf8mb4', '--collation-server=utf8mb4_unicode_ci']
     volumes:
       - {{ data_path_host }}/mariadb:/var/lib/mysql
-      - {{ database_entrypoint_initdb }}:/docker-entrypoint-initdb.d
     ports:
       - {{ database_port }}:3306
     networks:
-      - backend
-      # backend:
-      #   aliases:
-      #     - mysql # mainly for postal
+      backend:
+        ipv4_address: 172.20.0.3
+        aliases:
+          - {{ database_hostname }}
+          - database
+          - mysql
     environment:
       - TZ={{ app_timezone }}
       - MYSQL_ROOT_PASSWORD={{ database_root_password }}
@@ -89,9 +88,7 @@ services:
     ports:
       - {{ app_host_http_port }}:80
       - {{ app_host_https_port }}:443
-    depends_on: [php-fpm{% if app_install_database or app_install_mailserver %}, phpmyadmin{% endif %}{% if app_install_mailserver %}, postal{% endif %}]
-    # depends_on: [php-fpm{% if app_install_database or app_install_mailserver %}, phpmyadmin{% endif %}{% if app_install_mailserver %}, mailserver, rainloop, postfixadmin{% endif %}]
-    # depends_on: [php-fpm{% if app_install_database %}, phpmyadmin{% endif %}{% if app_install_mailu %}, mailu-front{% endif %}]
+    depends_on: [php-fpm{% if app_install_database or app_install_mailserver %}, phpmyadmin{% endif %}{% if app_install_mailserver %}, postal, roundcube{% endif %}]
     networks:
       - frontend
       - backend
@@ -171,8 +168,6 @@ services:
       - {{ app_code_path_host }}:{{ app_code_path_container }}
     ports:
       - {{ php_fpm_port }}:9000
-    extra_hosts:
-      - dockerhost:{{ docker_host_ip }}
     environment:
       - PHP_IDE_CONFIG={{ php_fpm_ide_config }}
       - DOCKER_TLS_VERIFY=1
@@ -221,6 +216,7 @@ services:
       dockerfile: Dockerfile{% if docker_postal_version != 'ubuntu' %}-{{ docker_postal_version }}{% endif %}
       # escapes belore from the above template
       args:
+        - DB_HOST={{ database_hostname }}
         - POSTAL_FNAME={{ postal_admin_fname }}
         - POSTAL_LNAME={{ postal_admin_lname }}
         - POSTAL_PASSWORD={{ postal_admin_password }}
@@ -262,6 +258,29 @@ services:
       - RABBITMQ_DEFAULT_VHOST=/{{ rabbitmq_default_vhost }}
     networks:
       - backend
+
+  roundcube:
+    image: roundcube/roundcubemail
+    container_name: {{ app_domain }}-webmail
+    volumes:
+      - {{ data_path_host }}/roundcube/html/:/var/www/html
+    environment:
+      - ROUNDCUBEMAIL_DEFAULT_HOST={{ mailserver_hostname }}
+      - ROUNDCUBEMAIL_SMTP_SERVER=postal
+      - ROUNDCUBEMAIL_DB_TYPE=mysql
+      - ROUNDCUBEMAIL_DB_HOST=mariadb
+      - ROUNDCUBEMAIL_DB_PORT=3306
+      - ROUNDCUBEMAIL_DB_USER={{ database_user }}
+      - ROUNDCUBEMAIL_DB_PASSWORD={{ database_root_password }}
+      - ROUNDCUBEMAIL_DB_NAME={{ mailserver_database }}
+      - ROUNDCUBEMAIL_UPLOAD_MAX_FILESIZE={{ roundcube_upload_max_filesize }}
+      - ROUNDCUBEMAIL_PLUGINS={{ roundcube_plugins }}
+    depends_on:
+      - postal
+    restart: {{ app_container_restart_mode }}
+    networks:
+      - backend
+
 {% endif %}
 
 

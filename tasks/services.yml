@@ -2,6 +2,7 @@
 
 
 - name: Ensure docker-compose pip module
+  become: true
   pip: name=docker-compose
 
 - name: Create and start services

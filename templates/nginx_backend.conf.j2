@@ -28,17 +28,14 @@ server {
 	ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
 	{% endif %}
 
-    location = /favicon.ico { access_log off; log_not_found off; }
-    location = /robots.txt  { access_log off; log_not_found off; }
+    # location = /favicon.ico { access_log off; log_not_found off; }
+    # location = /robots.txt  { access_log off; log_not_found off; }
 
-    error_page 404 /index.php;
+    # error_page 404 /index.php;
 	error_log /var/log/nginx/error.log;
-
-    charset utf-8;
 
     location / {
         try_files $uri $uri/ /index.php?$query_string;
-
 		location ~ \.php$ {
         	fastcgi_pass php-upstream;
 			fastcgi_index index.php;
@@ -48,17 +45,8 @@ server {
 		}
     }
 
-
 	{% if app_install_database or app_install_mailserver %}
-	location /phpmyadmin/ {
-        proxy_pass http://app.phpmyadmin/;
-		proxy_set_header Host $host;
-		proxy_set_header X-Real-IP $remote_addr;
-		proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-	}
-	location /phpMyAdmin {
-			rewrite ^/* /phpmyadmin last;
-	}
+	{% include 'phpmyadmin.conf.j2' %}
 	{% endif %}
 
 	{% if app_install_mailserver %}
