@@ -3,6 +3,17 @@
 
 - include_tasks: tasks/files.yml
 
+# - name: Pull docker-postal
+#   block:
+#     - stat:
+#         path: "{{ project_url }}/postal"
+#       register: postal_repo
+#     - git:
+#         repo: https://github.com/CatDeployed/docker-postal.git
+#         dest: "{{ project_url }}/postal"
+#       when: postal_repo.stat.exists != true
+#   when: app_install_mailserver
+
 - set_fact:
     nginx_ssl: false
 
@@ -15,11 +26,3 @@
 
 - include_tasks: tasks/ssl.yml
   when: app_enable_ssl
-
-- name: Reload nginx
-  become: true
-  shell: docker exec nginx nginx -s reload
-
-- name: Restart php-fpm
-  become: true
-  shell: docker restart php{{ php_version }}-fpm

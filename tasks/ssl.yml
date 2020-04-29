@@ -17,3 +17,14 @@
     cert_domain: "{% if app_subdomains.0 != '' %}{{ app_subdomains.0 }}.{% endif %}{{ app_domain }}" # takes first subdomain. Must be consistent with line 8 of `init-letsencrypt.sh`
 
 - include_tasks: tasks/templates-nginx.yml
+
+- name: Waiting for nginx
+  wait_for:
+    host: 0.0.0.0
+    port: 80
+    # delay: 10
+
+- name: Reload nginx
+  become: true
+  shell: docker exec {{ app_domain }}-nginx nginx -s reload
+

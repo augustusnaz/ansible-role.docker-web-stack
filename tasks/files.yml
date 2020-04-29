@@ -1,5 +1,6 @@
 ---
 
+
 - name: Create the project directory
   file:
     path: "{{ project_url }}"
@@ -16,7 +17,18 @@
     - docker-entrypoint-initdb.d
     - nginx
     - php-fpm
+    - postal
     - redis
     - .gitignore
-    - .env
 
+# - name: Clean nginx site configs
+#   block:
+#     # shell: "rm -rf {{ project_url }}/*.conf"
+#     - find:
+#         paths: "{{ project_url }}"
+#         patterns: "*.conf"
+#       register: conf_files
+#     - file:
+#         path: "{{ item.path }}"
+#         state: absent
+#       with_items: "{{ conf_files.files }}"

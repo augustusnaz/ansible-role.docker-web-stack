@@ -1,11 +1,6 @@
 ---
 
 
-# - name: Tear down existing services
-#   docker_compose:
-#     project_src: "{{ project_url }}"
-#     state: absent
-
 - name: Ensure docker-compose pip module
   pip: name=docker-compose
 
@@ -13,13 +8,8 @@
   become: true
   docker_compose:
     project_src: "{{ project_url }}"
+    build: yes
   register: output
-
-# - name: Run 'docker-compose up'
-#   docker_compose:
-#     project_src: "{{ project_url }}"
-#     # build: no
-#   register: output
 
 - debug:
     var: output

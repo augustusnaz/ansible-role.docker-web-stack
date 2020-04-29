@@ -1,22 +1,41 @@
-upstream mailu.front {
-  	server mailu-front:80;
-}
-
 server {
-	listen 80;
-    listen [::]:80;
+    listen 80;
+
+	{% if nginx_ssl %}
+    listen 443 ssl;
+	ssl_certificate /etc/letsencrypt/live/{{ cert_domain }}/fullchain.pem;
+	ssl_certificate_key /etc/letsencrypt/live/{{ cert_domain }}/privkey.pem;
+	{% endif %}
 
 	server_name 	{{ mailserver_hostname }}.{{ app_domain }};
+
+    root /opt/postal/public;
+    gzip_static on;
+    gzip_proxied any;
+
+	{% if nginx_ssl %}
+	include /etc/letsencrypt/options-ssl-nginx.conf;
+	ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+	{% endif %}
 
     error_log 		/var/log/nginx/error.log;
     access_log 		/var/log/nginx/access.log;
 
-	location /{
-		proxy_pass http://mailu.front/;
-		proxy_set_header Host $host;
-		proxy_set_header X-Real-IP $remote_addr;
-		proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-	}
+
+    location / {
+        client_max_body_size 50M;
+        try_files $uri $uri/index.html $uri.html @puma;
+    }
+    location /assets {
+        add_header Cache-Control "public,max-age=3600,immutable";
+    }
+    location @puma {
+        proxy_set_header X-Real-IP  $remote_addr;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_pass http://postal:5000;
+    }
 
 	{% if app_backend == false %}
 	{% include 'mailservices_loc.conf.j2' %}
@@ -30,5 +49,4 @@ server {
     	root /var/www/certbot;
         log_not_found off;
     }
-
 }

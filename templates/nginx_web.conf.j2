@@ -1,20 +1,19 @@
+{% if app_install_database or app_install_mailserver %}
 upstream app.phpmyadmin {
   	server phpmyadmin:80;
 }
+{% endif %}
 upstream php-upstream {
   	server php-fpm:9000;
 }
 
-{% if app_install_database or app_install_mailserver %}
-upstream mail.mailserver {
-  	server mailserver:11334;
-}
-upstream mail.webmail {
-  	server rainloop:8888;
-}
-upstream mail.postfixadmin {
-  	server postfixadmin:8888;
-}
+{% if app_install_mailserver %}
+# upstream mail.mailserver {
+#   	server mailserver:11334;
+# }
+# upstream mail.webmail {
+#   	server rainloop:8888;
+# }
 {% endif %}
 
 map $http_x_forwarded_proto $fastcgi_param_https {

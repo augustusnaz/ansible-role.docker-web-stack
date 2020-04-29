@@ -5,10 +5,16 @@
     src: docker-compose.yml
     dest: "{{ project_url }}/docker-compose.yml"
 
-# - name: Template docker compose env
-#   template:
-#     src: .env.j2
-#     dest: "{{ project_url }}/.env"
+- name: Template .env
+  template:
+    src: .env
+    dest: "{{ project_url }}/.env"
+
+- name: Template postal config
+  template:
+    src: postal.yml
+    dest: "{{ project_url }}/postal/postal.yml"
+  when: app_install_mailserver
 
 - include_tasks: tasks/templates-nginx.yml
 

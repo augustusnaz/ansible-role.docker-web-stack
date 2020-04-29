@@ -5,6 +5,11 @@ networks:
     driver: {{ app_container_networks_driver }}
   backend:
     driver: {{ app_container_networks_driver }}
+    # ipam:
+    #   driver: default
+    #   config:
+    #   # - subnet:  172.20.0.0/24
+    #   - subnet:  10.103.0.0/16
 
 
 volumes:
@@ -21,7 +26,7 @@ services:
     build:
       context: ./certbot
     image: certbot
-    container_name: certbot
+    container_name: {{ app_domain }}-certbot
     volumes:
       - {{ data_path_host }}/certs:/certs
       - {{ data_path_host }}/letsencrypt:/etc/letsencrypt
@@ -48,7 +53,7 @@ services:
   mariadb:
     image: mariadb:10.4
     restart: {{ app_container_restart_mode }}
-    container_name: mariadb
+    container_name: {{ app_domain }}-mariadb
     command: ['--character-set-server=utf8mb4', '--collation-server=utf8mb4_unicode_ci']
     volumes:
       - {{ data_path_host }}/mariadb:/var/lib/mysql
@@ -57,6 +62,9 @@ services:
       - {{ database_port }}:3306
     networks:
       - backend
+      # backend:
+      #   aliases:
+      #     - mysql # mainly for postal
     environment:
       - TZ={{ app_timezone }}
       - MYSQL_ROOT_PASSWORD={{ database_root_password }}
@@ -69,18 +77,21 @@ services:
   nginx:
     image: nginx:alpine
     restart: {{ app_container_restart_mode }}
-    container_name: nginx
+    container_name: {{ app_domain }}-nginx
     volumes:
       - ./nginx/sites/:/etc/nginx/conf.d/:ro
       - {{ log_path }}/nginx/:/var/log/nginx/
       - {{ data_path_host }}/letsencrypt:/etc/letsencrypt
       - {{ data_path_host }}/certbot/www:/var/www/certbot
       - {{ app_code_path_host }}:/var/www/html
+      - static_assets:/opt/postal/public:ro
+      - postal_assets:/opt/postal/public/assets:ro
     ports:
       - {{ app_host_http_port }}:80
       - {{ app_host_https_port }}:443
+    depends_on: [php-fpm{% if app_install_database or app_install_mailserver %}, phpmyadmin{% endif %}{% if app_install_mailserver %}, postal{% endif %}]
     # depends_on: [php-fpm{% if app_install_database or app_install_mailserver %}, phpmyadmin{% endif %}{% if app_install_mailserver %}, mailserver, rainloop, postfixadmin{% endif %}]
-    depends_on: [php-fpm{% if app_install_database %}, phpmyadmin{% endif %}{% if app_install_mailu %}, mailu-front{% endif %}]
+    # depends_on: [php-fpm{% if app_install_database %}, phpmyadmin{% endif %}{% if app_install_mailu %}, mailu-front{% endif %}]
     networks:
       - frontend
       - backend
@@ -153,13 +164,13 @@ services:
         - https_proxy
         - no_proxy
     image: php-fpm:{{ php_version }}
-    container_name: php{{ php_version }}-fpm
+    container_name: {{ app_domain }}-php{{ php_version }}-fpm
     volumes:
       - ./php-fpm/php{{ php_version }}.ini:/usr/local/etc/php/php.ini
       # - {{ app_code_path_host }}:{{ app_code_path_container }}{{ app_code_container_flag }}
       - {{ app_code_path_host }}:{{ app_code_path_container }}
-    expose:
-      - "9000"
+    ports:
+      - {{ php_fpm_port }}:9000
     extra_hosts:
       - dockerhost:{{ docker_host_ip }}
     environment:
@@ -175,7 +186,7 @@ services:
 {% if app_install_database or app_install_mailserver %}
   phpmyadmin:
     image: phpmyadmin/phpmyadmin
-    container_name: phpmyadmin
+    container_name: {{ app_domain }}-phpmyadmin
     environment:
       PMA_HOST: mariadb
       PMA_ABSOLUTE_URI: /phpmyadmin
@@ -188,11 +199,11 @@ services:
 {% endif %}
 
 
-# ### Redis ################################################
+### Redis ################################################
   redis:
     build: ./redis
     image: redis
-    container_name: redis
+    container_name: {{ app_domain }}-redis
     volumes:
       - {{ data_path_host }}/redis:/data
     ports:
@@ -203,272 +214,57 @@ services:
 
 {% if app_install_mailserver %}
 
-### Mail ##############################################
-  mailserver:
-    container_name: mailserver
-    image: hardware/mailserver:{{ mailserver_docker_tag }}
-    restart: {{ app_container_restart_mode }}
-    domainname: {{ app_domain }}
-    hostname: {{ mailserver_hostname }}
+### Mail ################################################
+  postal:
+    build:
+      context: ./postal
+      dockerfile: Dockerfile{% if docker_postal_version != 'ubuntu' %}-{{ docker_postal_version }}{% endif %}
+      # escapes belore from the above template
+      args:
+        - POSTAL_FNAME={{ postal_admin_fname }}
+        - POSTAL_LNAME={{ postal_admin_lname }}
+        - POSTAL_PASSWORD={{ postal_admin_password }}
+        - POSTAL_EMAIL={{ postal_admin_email }}
+    image: postal:{{ docker_postal_version }}
+    container_name: {{ app_domain }}-postal
+    volumes:
+      - {{ log_path }}/postal/:/opt/postal/log
+      - {{ data_path_host }}/postal/templates/:/templates
+      - {{ project_url }}/postal/postal.yml:/opt/postal/config/postal.yml
+      - static_assets:/opt/postal/public
+      - postal_assets:/opt/postal/public/assets
+    depends_on:
+      - mariadb
+      - rabbitmq
     ports:
-      - "25:25"       # SMTP                - Required
-      - "110:110"     # POP3       STARTTLS - Optional - For webmails/desktop clients
-      - "143:143"     # IMAP       STARTTLS - Optional - For webmails/desktop clients
-      - "465:465"     # SMTPS      SSL/TLS  - Optional - Enabled for compatibility reason, otherwise disabled
-      - "587:587"     # Submission STARTTLS - Optional - For webmails/desktop clients
-      - "993:993"     # IMAPS      SSL/TLS  - Optional - For webmails/desktop clients
-      - "995:995"     # POP3S      SSL/TLS  - Optional - For webmails/desktop clients
-      - "4190:4190"   # SIEVE      STARTTLS - Optional - Recommended for mail filtering
+      - 25:25       # SMTP                - Required
+      - 110:110     # POP3       STARTTLS - Optional - For webmails/desktop clients
+      - 143:143     # IMAP       STARTTLS - Optional - For webmails/desktop clients
+      - 465:465     # SMTPS      SSL/TLS  - Optional - Enabled for compatibility reason, otherwise disabled
+      - 587:587     # Submission STARTTLS - Optional - For webmails/desktop clients
+      - 993:993     # IMAPS      SSL/TLS  - Optional - For webmails/desktop clients
+      - 995:995     # POP3S      SSL/TLS  - Optional - For webmails/desktop clients
+      - 4190:4190   # SIEVE      STARTTLS - Optional - Recommended for mail filtering
+    healthcheck:
+      test: curl -sS http://127.0.0.1:5000 || exit 1
+      interval: 5s
+      timeout: 10s
+      retries: 3
+    networks:
+      - backend
+
+  rabbitmq:
+    image: rabbitmq:3-alpine
+    container_name: {{ app_domain }}-rabbitmq
     environment:
-      - DBNAME={{ mailserver_database }}
-      - DBUSER={{ database_user }}
-      - DBPASS={{ database_root_password }}
-      - RSPAMD_PASSWORD={{ rspamd_password }}
-      # - ADD_DOMAINS=aa.tld, www.bb.tld...      # Add additional domains separated by commas (needed for dkim keys etc.)
-      - DEBUG_MODE={{ mailserver_debug }}
-      - ENABLE_POP3={{ mailserver_enable_pop3 }}
-      - ENABLE_FETCHMAIL={{ mailserver_enable_fetchmail }}
-      - DISABLE_RATELIMITING={{ mailserver_disable_ratelimiting }}
-      - DISABLE_CLAMAV={{ mailserver_disable_clamav }}
-      - DISABLE_SIGNING={{ mailserver_disable_signing }}
-      # - =true                    # Disable virus scanning
-      # - =true                   # Disable DKIM/ARC signing
-      - DISABLE_GREYLISTING={{ mailserver_disable_greylisting }}
-      #
-      # Full list : https://github.com/hardware/mailserver#environment-variables
-      #
-    volumes:
-      - {{ data_path_host }}/mail:/var/mail
-    depends_on:
-      - mariadb
-      - redis
+      - RABBITMQ_DEFAULT_USER={{ rabbitmq_default_user }}
+      - RABBITMQ_DEFAULT_PASS={{ rabbitmq_default_pass }}
+      - RABBITMQ_DEFAULT_VHOST=/{{ rabbitmq_default_vhost }}
     networks:
-      - frontend
       - backend
-
-
-  # https://github.com/hardware/postfixadmin
-  # http://postfixadmin.sourceforge.net/
-  # Configuration : https://github.com/hardware/mailserver/wiki/Postfixadmin-initial-configuration
-  postfixadmin:
-    container_name: postfixadmin
-    image: hardware/postfixadmin
-    restart: {{ app_container_restart_mode }}
-    domainname: {{ app_domain }}
-    hostname: {{ mailserver_hostname }}
-    environment:
-      - DBNAME={{ mailserver_database }}
-      - DBUSER={{ database_user }}
-      - DBPASS={{ database_root_password }}
-      - DOMAIN={{ mailserver_hostname }}
-    depends_on:
-      - mailserver
-      - mariadb
-    networks:
-      - frontend
-      - backend
-
-  # Configuration : https://github.com/hardware/mailserver/wiki/Rainloop-initial-configuration
-  rainloop:
-    container_name: rainloop
-    image: hardware/rainloop
-    restart: {{ app_container_restart_mode }}
-    volumes:
-      - {{ data_path_host }}/rainloop:/rainloop/data
-    depends_on:
-      - mailserver
-      - mariadb
-    networks:
-      - frontend
-      - backend
-
 {% endif %}
 
 
-{% if app_install_mailu %}
-
-############################################################################################################
-
-  # mailu:
-  #   image: mailu/admin:{{ mailu_version }}
-  #   container_name: mailu
-  #   restart: {{ app_container_restart_mode }}
-  #   volumes:
-  #     - {{ data_path_host }}/mailu/data:/data
-  #     - {{ data_path_host }}/mailu/dkim:/dkim
-  #     - {{ data_path_host }}/mailu/webmail:/webmail
-  #     - /var/run/docker.sock:/var/run/docker.sock:ro
-  #   depends_on:
-  #     - mailu-front
-  #     - mailu-imap
-  #     - mailu-smtp
-  #     - mailu-antispam
-  #     - mailu-antivirus
-  #     - mailu-webdav
-  #     - mailu-admin
-  #     - mailu-webmail
-  #     - mailu-fetchmail
-  #   command: ["sh", "-c", "echo {{ mailu_init_admin_username }}@{{ app_domain }} {{ mailu_init_admin_password }} ;python manage.py advertise ; python manage.py db upgrade ; python manage.py admin {{ mailu_init_admin_username }} {{ app_domain }} {{ mailu_init_admin_password }} || true;sed -i -- \"s/= Off/= On/g\" /webmail/_data_/_default_/configs/config.ini || true;if grep -Fq \"registration_link_url\" /webmail/_data_/_default_/configs/config.ini;then echo Already set!;else echo \"\" >> /webmail/_data_/_default_/configs/config.ini; echo \"[login]\" >> /webmail/_data_/_default_/configs/config.ini;echo \"registration_link_url = '{{ mailu_website }}{{ mailu_web_admin }}/ui/user/signup'\" >> /webmail/_data_/_default_/configs/config.ini;fi"]
-  #   networks:
-  #     - backend
-  #   depends_on:
-  #     - redis
-  mailu-front:
-    image: mailu/nginx:{{ mailu_version }}
-    container_name: mailu-front
-    restart: {{ app_container_restart_mode }}
-    logging:
-      driver: json-file
-    environment:
-      - ADMIN={{ mailu_admin }}
-      - WEB_ADMIN={{ mailu_web_admin }}
-      - WEB_WEBMAIL={{ mailu_web_webmail }}
-      - WEBDAV={{ mailu_webdav }}
-      - HOSTNAMES={{ mailu_hostnames }}
-      - TLS_FLAVOR={{ mailu_tls_flavor }}
-      - MESSAGE_SIZE_LIMIT={{ mailu_message_size_limit }}
-    ports:
-      - 110:110
-      - 143:143
-      - 993:993
-      - 995:995
-      - 25:25
-      - 465:465
-      - 587:587
-    volumes:
-      - {{ data_path_host }}/mailu/certs:/certs
-    networks:
-      backend:
-        aliases:
-          - front
-  mailu-imap:
-    image: mailu/dovecot:{{ mailu_version }}
-    container_name: mailu-imap
-    restart: {{ app_container_restart_mode }}
-    environment:
-      - DOMAIN={{ app_domain }}
-      - HOSTNAMES={{ mailu_hostnames }}
-      - POSTMASTER={{ mailu_postmaster }}
-      - WEBMAIL={{ mailu_webmail }}
-      - RECIPIENT_DELIMITER={{ mailu_recipient_delimiter }}
-    volumes:
-      - {{ data_path_host }}/mailu/data:/data
-      - {{ data_path_host }}/mailu/mail:/mail
-      - {{ data_path_host }}/mailu/overrides:/overrides
-    depends_on:
-      - mailu-front
-    networks:
-      backend:
-        aliases:
-          - imap
-  mailu-smtp:
-    image: mailu/postfix:{{ mailu_version }}
-    container_name: mailu-smtp
-    restart: {{ app_container_restart_mode }}
-    environment:
-      - DOMAIN={{ app_domain }}
-      - HOSTNAMES={{ mailu_hostnames }}
-      - RELAYHOST={{ mailu_relayhost }}
-      - RELAYNETS={{ mailu_relaynets }}
-      - RECIPIENT_DELIMITER={{ mailu_recipient_delimiter }}
-      - MESSAGE_SIZE_LIMIT={{ mailu_message_size_limit }}
-    volumes:
-      - {{ data_path_host }}/mailu/data:/data
-      - {{ data_path_host }}/mailu/overrides:/overrides
-    depends_on:
-      - mailu-front
-    networks:
-      backend:
-        aliases:
-          - smtp
-  mailu-antispam:
-    image: mailu/rspamd:{{ mailu_version }}
-    container_name: mailu-antispam
-    volumes:
-      - {{ data_path_host }}/mailu/filter:/var/lib/rspamd
-      - {{ data_path_host }}/mailu/dkim:/dkim
-      - {{ data_path_host }}/mailu/overrides/rspamd:/etc/rspamd/override.d
-    depends_on:
-      - mailu-front
-    networks:
-      backend:
-        aliases:
-          - antispam
-  mailu-antivirus:
-    image: mailu/clamav:{{ mailu_version }}
-    container_name: mailu-antivirus
-    restart: {{ app_container_restart_mode }}
-    volumes:
-      - {{ data_path_host }}/mailu/filter:/data
-    networks:
-      backend:
-        aliases:
-          - antivirus
-  mailu-webdav:
-    image: mailu/{{ mailu_webdav }}:{{ mailu_version }}
-    container_name: mailu-webdav
-    restart: {{ app_container_restart_mode }}
-    volumes:
-      - {{ data_path_host }}/mailu/dav:/data
-    networks:
-      backend:
-        aliases:
-          - webdav
-  mailu-admin:
-    image: mailu/admin:{{ mailu_version }}
-    container_name: mailu-admin
-    restart: {{ app_container_restart_mode }}
-    environment:
-      - DOMAIN={{ app_domain }}
-      - HOSTNAMES={{ mailu_hostnames }}
-      - POSTMASTER={{ mailu_postmaster }}
-      - SECRET_KEY={{ mailu_secret_key }}
-      - AUTH_RATELIMIT={{ mailu_auth_ratelimit }}
-      - TLS_FLAVOR={{ mailu_tls_flavor }}
-      - DISABLE_STATISTICS={{ mailu_disable_statistics }}
-      - DMARC_RUA={{ mailu_dmarc_rua }}
-      - DMARC_RUF={{ mailu_dmarc_ruf }}
-      - WELCOME={{ mailu_welcome }}
-      - WELCOME_SUBJECT={{ mailu_welcome_subject }}
-      - WELCOME_BODY={{ mailu_welcome_body }}
-      - WEB_ADMIN={{ mailu_web_admin }}
-      - WEB_WEBMAIL={{ mailu_web_webmail }}
-      - WEBSITE={{ mailu_website }}
-      - WEBMAIL={{ mailu_webmail }}
-      - SITENAME={{ mailu_sitename }}
-      - PASSWORD_SCHEME={{ mailu_password_scheme }}
-      # - RECAPTCHA_PUBLIC_KEY={{ mailu_recaptcha_public_key }}
-      # - RECAPTCHA_PRIVATE_KEY={{ mailu_recaptcha_private_key }}
-    volumes:
-      - {{ data_path_host }}/mailu/data:/data
-      - {{ data_path_host }}/mailu/dkim:/dkim
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-    depends_on:
-      - redis
-    networks:
-      backend:
-        aliases:
-          - admin
-  mailu-webmail:
-    image: mailu/{{ mailu_webmail }}:{{ mailu_version }}
-    container_name: mailu-webmail
-    restart: {{ app_container_restart_mode }}
-    volumes:
-      - {{ data_path_host }}/mailu/webmail:/data
-    networks:
-      backend:
-        aliases:
-          - webmail
-  mailu-fetchmail:
-    image: mailu/fetchmail:{{ mailu_version }}
-    restart: {{ app_container_restart_mode }}
-    environment:
-      - FETCHMAIL_DELAY={{ mailu_fetchmail_delay }}
-    volumes:
-      - {{ data_path_host }}/mailu/data:/data
-    networks:
-      backend:
-        aliases:
-          - fetchmail
-
-{% endif %}
+volumes:
+  static_assets:
+  postal_assets:

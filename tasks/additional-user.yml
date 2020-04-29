@@ -1,5 +1,10 @@
 ---
 
+# - name: Waiting for mariadb
+#   wait_for:
+#     host: mariadb
+#     port: "{{ database_port }}"
+
 - set_fact:
     additional_database: "{% if app_install_mailserver %}{{ database }}{% else %}{{ mailserver_database }}{% endif %}"
 

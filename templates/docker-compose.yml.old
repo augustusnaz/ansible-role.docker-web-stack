@@ -1,0 +1,507 @@
+version: "3.1"
+
+networks:
+  frontend:
+    driver: {{ app_container_networks_driver }}
+  backend:
+    driver: {{ app_container_networks_driver }}
+
+
+volumes:
+  mariadb:
+    driver: {{ volumes_driver }}
+  phpmyadmin:
+    driver: {{ volumes_driver }}
+
+
+services:
+
+### Certbot ################################################
+  certbot:
+    build:
+      context: ./certbot
+    image: certbot
+    container_name: {{ app_domain }}-certbot
+    volumes:
+      - {{ data_path_host }}/certs:/certs
+      - {{ data_path_host }}/letsencrypt:/etc/letsencrypt
+      - {{ log_path }}/letsencrypt:/var/log/letsencrypt
+      - {{ data_path_host }}/certbot/www:/var/www/certbot
+    restart: {{ app_container_restart_mode }}
+    # ports:
+    #   - {{ certbot_port }}:0000
+    environment:
+      # - WEBROOT=/path/to/web_root
+      - LOGFILE=/var/log/letsencrypt/certrenewal.log
+      - DEBUG={{ certbot_debug }}
+      - STAGING={{ certbot_staging }}
+      - DOMAINS="{% for subdomain in app_subdomains %}{% if subdomain != '' %}{{ subdomain }}.{% endif %}{{ app_domain }}, {% endfor %}"
+      - EMAIL={{ certbot_email }}
+      - CONCAT={{ certbot_concat }}
+      - HEALTH_CHECK_URL={{ app_domain }}:{{ certbot_health_check_port }}
+      - PREFERRED_CHALLENGES={{ certbot_preferred_challenges }}
+    networks:
+      - frontend
+
+### MariaDB ##############################################
+{% if app_install_database or app_install_mailserver %}
+  mariadb:
+    image: mariadb:10.4
+    restart: {{ app_container_restart_mode }}
+    container_name: {{ app_domain }}-mariadb
+    command: ['--character-set-server=utf8mb4', '--collation-server=utf8mb4_unicode_ci']
+    volumes:
+      - {{ data_path_host }}/mariadb:/var/lib/mysql
+      - {{ database_entrypoint_initdb }}:/docker-entrypoint-initdb.d
+    ports:
+      - {{ database_port }}:3306
+    networks:
+      - backend
+    environment:
+      - TZ={{ app_timezone }}
+      - MYSQL_ROOT_PASSWORD={{ database_root_password }}
+      - MYSQL_USER={{ database_user }}
+      - MYSQL_PASSWORD={{ database_password }}
+      - MYSQL_DATABASE={% if app_install_mailserver %}{{ mailserver_database }}{% else %}{{ database }}{% endif %}
+{% endif %}
+
+### NGINX ##############################################
+  nginx:
+    image: nginx:alpine
+    restart: {{ app_container_restart_mode }}
+    container_name: {{ app_domain }}-nginx
+    volumes:
+      - ./nginx/sites/:/etc/nginx/conf.d/:ro
+      - {{ log_path }}/nginx/:/var/log/nginx/
+      - {{ data_path_host }}/letsencrypt:/etc/letsencrypt
+      - {{ data_path_host }}/certbot/www:/var/www/certbot
+      - {{ app_code_path_host }}:/var/www/html
+    ports:
+      - {{ app_host_http_port }}:80
+      - {{ app_host_https_port }}:443
+    # depends_on: [php-fpm{% if app_install_database or app_install_mailserver %}, phpmyadmin{% endif %}{% if app_install_mailserver %}, mailserver, rainloop, postfixadmin{% endif %}]
+    depends_on: [php-fpm{% if app_install_database %}, phpmyadmin{% endif %}{% if app_install_mailu %}, mailu-front{% endif %}]
+    networks:
+      - frontend
+      - backend
+
+# ### PHP-FPM ##############################################
+  php-fpm:
+    build:
+      context: ./php-fpm
+      args:
+        - CHANGE_SOURCE={{ php_fpm_change_source }}
+        - PHP_VERSION={{ php_version }}
+        - PHALCON_VERSION={{ phalcon_version }}
+        - INSTALL_BZ2={{ php_fpm_install_bz2 }}
+        - INSTALL_GMP={{ php_fpm_install_gmp }}
+        - INSTALL_XDEBUG={{ php_fpm_install_xdebug }}
+        - INSTALL_PCOV={{ php_fpm_install_pcov }}
+        - INSTALL_PHPDBG={{ php_fpm_install_phpdbg }}
+        - INSTALL_BLACKFIRE={{ php_fpm_install_backfire }}
+        - INSTALL_SSH2={{ php_fpm_install_ssh2 }}
+        - INSTALL_SOAP={{ php_fpm_install_soap }}
+        - INSTALL_XSL={{ php_fpm_install_xsl }}
+        - INSTALL_SMB={{ php_fpm_install_smb }}
+        - INSTALL_IMAP={{ php_fpm_install_imap }}
+        - INSTALL_MONGO={{ php_fpm_install_mongo }}
+        - INSTALL_AMQP={{ php_fpm_install_amqp }}
+        - INSTALL_CASSANDRA={{ php_fpm_install_cassandra }}
+        - INSTALL_GEARMAN={{ php_fpm_install_gearman }}
+        - INSTALL_MSSQL={{ php_fpm_install_mssql }}
+        - INSTALL_BCMATH={{ php_fpm_install_bcmath }}
+        - INSTALL_PHPREDIS={{ php_fpm_install_phpredis }}
+        - INSTALL_MEMCACHED={{ php_fpm_install_memcached }}
+        - INSTALL_OPCACHE={{ php_fpm_install_opcache }}
+        - INSTALL_EXIF={{ php_fpm_install_exif }}
+        - INSTALL_AEROSPIKE={{ php_fpm_install_aerospike }}
+        - INSTALL_OCI8={{ php_fpm_install_oci8 }}
+        - INSTALL_MYSQLI={{ php_fpm_install_mysqli }}
+        - INSTALL_PGSQL={{ php_fpm_install_pgsql }}
+        - INSTALL_PG_CLIENT={{ php_fpm_install_pg_client }}
+        - INSTALL_POSTGIS={{ php_fpm_install_postgis }}
+        - INSTALL_INTL={{ php_fpm_install_intl }}
+        - INSTALL_GHOSTSCRIPT={{ php_fpm_install_ghostscript }}
+        - INSTALL_LDAP={{ php_fpm_install_ldap }}
+        - INSTALL_PHALCON={{ php_fpm_install_phalcon }}
+        - INSTALL_SWOOLE={{ php_fpm_install_swoole }}
+        - INSTALL_TAINT={{ php_fpm_install_taint }}
+        - INSTALL_IMAGE_OPTIMIZERS={{ php_fpm_install_image_optimizers }}
+        - INSTALL_IMAGEMAGICK={{ php_fpm_install_imagemagick }}
+        - INSTALL_CALENDAR={{ php_fpm_install_calendar }}
+        - INSTALL_FAKETIME={{ php_fpm_install_faketime }}
+        - INSTALL_IONCUBE={{ php_fpm_install_ioncube }}
+        - INSTALL_APCU={{ php_fpm_install_apcu }}
+        - INSTALL_CACHETOOL={{ php_fpm_install_cachetool }}
+        - INSTALL_YAML={{ php_fpm_install_yaml }}
+        - INSTALL_RDKAFKA={{ php_fpm_install_rdkafka }}
+        - INSTALL_GETTEXT={{ php_fpm_install_gettext }}
+        - INSTALL_ADDITIONAL_LOCALES={{ php_fpm_install_additional_locales }}
+        - INSTALL_MYSQL_CLIENT={{ php_fpm_install_mysql_client }}
+        - INSTALL_PING={{ php_fpm_install_ping }}
+        - INSTALL_SSHPASS={{ php_fpm_install_sshpass }}
+        - INSTALL_MAILPARSE={{ php_fpm_install_mailparse }}
+        - INSTALL_PCNTL={{ php_fpm_install_pcntl }}
+        - ADDITIONAL_LOCALES={{ php_fpm_additional_locales }}
+        - INSTALL_FFMPEG={{ php_fpm_ffmpeg }}
+        - INSTALL_WKHTMLTOPDF={{ php_fpm_install_wkhtmltopdf }}
+        - INSTALL_XHPROF={{ php_fpm_install_xhprof }}
+        - PUID={{ php_fpm_puid }}
+        - PGID={{ php_fpm_pgid }}
+        - LOCALE={{ php_fpm_default_locale }}
+        - http_proxy
+        - https_proxy
+        - no_proxy
+    image: php-fpm:{{ php_version }}
+    container_name: {{ app_domain }}-php{{ php_version }}-fpm
+    volumes:
+      - ./php-fpm/php{{ php_version }}.ini:/usr/local/etc/php/php.ini
+      # - {{ app_code_path_host }}:{{ app_code_path_container }}{{ app_code_container_flag }}
+      - {{ app_code_path_host }}:{{ app_code_path_container }}
+    ports:
+      - {{ php_fpm_port }}:9000
+    extra_hosts:
+      - dockerhost:{{ docker_host_ip }}
+    environment:
+      - PHP_IDE_CONFIG={{ php_fpm_ide_config }}
+      - DOCKER_TLS_VERIFY=1
+      - DOCKER_TLS_CERTDIR=/certs
+      - DOCKER_CERT_PATH=/certs/client
+      - FAKETIME={{ php_fpm_faketime }}
+    networks:
+      - backend
+
+### phpMyAdmin ###########################################
+{% if app_install_database or app_install_mailserver %}
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: {{ app_domain }}-phpmyadmin
+    environment:
+      PMA_HOST: mariadb
+      PMA_ABSOLUTE_URI: /phpmyadmin
+    depends_on:
+      - mariadb
+    restart: {{ app_container_restart_mode }}
+    networks:
+      - frontend
+      - backend
+{% endif %}
+
+
+### Redis ################################################
+  redis:
+    build: ./redis
+    image: redis
+    container_name: {{ app_domain }}-redis
+    volumes:
+      - {{ data_path_host }}/redis:/data
+    ports:
+      - {{ redis_port }}:6379
+    networks:
+      - backend
+
+### Mail ################################################
+  postal:
+    build: ./postal
+    image: postal
+    container_name: {{ app_domain }}-postal
+    environment:
+      USERNAME: root
+      USERPASSWORD: docker
+      USERPASSWORD: docker
+      DB_HOST: mariadb
+      DB_DATABASE: {{ database }}
+      DB_USERNAME: {{ database_user }}
+      # DB_PASSWORD: {{ database_password }}
+      DB_PASSWORD: {{ database_root_password }}
+    # volumes:
+    #   - {{ data_path_host }}/postal:/data
+    depends_on:
+      - mariadb
+    ports:
+      - 3000:80
+      - "25:25"       # SMTP                - Required
+      - "110:110"     # POP3       STARTTLS - Optional - For webmails/desktop clients
+      - "143:143"     # IMAP       STARTTLS - Optional - For webmails/desktop clients
+      - "465:465"     # SMTPS      SSL/TLS  - Optional - Enabled for compatibility reason, otherwise disabled
+      - "587:587"     # Submission STARTTLS - Optional - For webmails/desktop clients
+      - "993:993"     # IMAPS      SSL/TLS  - Optional - For webmails/desktop clients
+      - "995:995"     # POP3S      SSL/TLS  - Optional - For webmails/desktop clients
+      - "4190:4190"   # SIEVE      STARTTLS - Optional - Recommended for mail filtering
+    networks:
+      - frontend
+      - backend
+
+
+{% if app_install_mailserver %}
+
+### Mail ##############################################
+  mailserver:
+    container_name: {{ app_domain }}-mailserver
+    image: hardware/mailserver:{{ mailserver_docker_tag }}
+    restart: {{ app_container_restart_mode }}
+    domainname: {{ app_domain }}
+    hostname: {{ mailserver_hostname }}
+    ports:
+      - "25:25"       # SMTP                - Required
+      - "110:110"     # POP3       STARTTLS - Optional - For webmails/desktop clients
+      - "143:143"     # IMAP       STARTTLS - Optional - For webmails/desktop clients
+      - "465:465"     # SMTPS      SSL/TLS  - Optional - Enabled for compatibility reason, otherwise disabled
+      - "587:587"     # Submission STARTTLS - Optional - For webmails/desktop clients
+      - "993:993"     # IMAPS      SSL/TLS  - Optional - For webmails/desktop clients
+      - "995:995"     # POP3S      SSL/TLS  - Optional - For webmails/desktop clients
+      - "4190:4190"   # SIEVE      STARTTLS - Optional - Recommended for mail filtering
+    environment:
+      - DBNAME={{ mailserver_database }}
+      - DBUSER={{ database_user }}
+      - DBPASS={{ database_root_password }}
+      - RSPAMD_PASSWORD={{ rspamd_password }}
+      # - ADD_DOMAINS=aa.tld, www.bb.tld...      # Add additional domains separated by commas (needed for dkim keys etc.)
+      - DEBUG_MODE={{ mailserver_debug }}
+      - ENABLE_POP3={{ mailserver_enable_pop3 }}
+      - ENABLE_FETCHMAIL={{ mailserver_enable_fetchmail }}
+      - DISABLE_RATELIMITING={{ mailserver_disable_ratelimiting }}
+      - DISABLE_CLAMAV={{ mailserver_disable_clamav }}
+      - DISABLE_SIGNING={{ mailserver_disable_signing }}
+      # - =true                    # Disable virus scanning
+      # - =true                   # Disable DKIM/ARC signing
+      - DISABLE_GREYLISTING={{ mailserver_disable_greylisting }}
+      #
+      # Full list : https://github.com/hardware/mailserver#environment-variables
+      #
+    volumes:
+      - {{ data_path_host }}/mail:/var/mail
+    depends_on:
+      - mariadb
+      - redis
+    networks:
+      - frontend
+      - backend
+
+
+  # https://github.com/hardware/postfixadmin
+  # http://postfixadmin.sourceforge.net/
+  # Configuration : https://github.com/hardware/mailserver/wiki/Postfixadmin-initial-configuration
+  postfixadmin:
+    container_name: {{ app_domain }}-postfixadmin
+    image: hardware/postfixadmin
+    restart: {{ app_container_restart_mode }}
+    domainname: {{ app_domain }}
+    hostname: {{ mailserver_hostname }}
+    environment:
+      - DBNAME={{ mailserver_database }}
+      - DBUSER={{ database_user }}
+      - DBPASS={{ database_root_password }}
+      - DOMAIN={{ mailserver_hostname }}
+    depends_on:
+      - mailserver
+      - mariadb
+    networks:
+      - frontend
+      - backend
+
+  # Configuration : https://github.com/hardware/mailserver/wiki/Rainloop-initial-configuration
+  rainloop:
+    container_name: {{ app_domain }}-rainloop
+    image: hardware/rainloop
+    restart: {{ app_container_restart_mode }}
+    volumes:
+      - {{ data_path_host }}/rainloop:/rainloop/data
+    depends_on:
+      - mailserver
+      - mariadb
+    networks:
+      - frontend
+      - backend
+
+{% endif %}
+
+
+{% if app_install_mailu %}
+
+############################################################################################################
+
+  # mailu:
+  #   image: mailu/admin:{{ mailu_version }}
+  #   container_name: {{ app_domain }}-mailu
+  #   restart: {{ app_container_restart_mode }}
+  #   volumes:
+  #     - {{ data_path_host }}/mailu/data:/data
+  #     - {{ data_path_host }}/mailu/dkim:/dkim
+  #     - {{ data_path_host }}/mailu/webmail:/webmail
+  #     - /var/run/docker.sock:/var/run/docker.sock:ro
+  #   depends_on:
+  #     - mailu-front
+  #     - mailu-imap
+  #     - mailu-smtp
+  #     - mailu-antispam
+  #     - mailu-antivirus
+  #     - mailu-webdav
+  #     - mailu-admin
+  #     - mailu-webmail
+  #     - mailu-fetchmail
+  #   command: ["sh", "-c", "echo {{ mailu_init_admin_username }}@{{ app_domain }} {{ mailu_init_admin_password }} ;python manage.py advertise ; python manage.py db upgrade ; python manage.py admin {{ mailu_init_admin_username }} {{ app_domain }} {{ mailu_init_admin_password }} || true;sed -i -- \"s/= Off/= On/g\" /webmail/_data_/_default_/configs/config.ini || true;if grep -Fq \"registration_link_url\" /webmail/_data_/_default_/configs/config.ini;then echo Already set!;else echo \"\" >> /webmail/_data_/_default_/configs/config.ini; echo \"[login]\" >> /webmail/_data_/_default_/configs/config.ini;echo \"registration_link_url = '{{ mailu_website }}{{ mailu_web_admin }}/ui/user/signup'\" >> /webmail/_data_/_default_/configs/config.ini;fi"]
+  #   networks:
+  #     - backend
+  #   depends_on:
+  #     - redis
+  mailu-front:
+    image: mailu/nginx:{{ mailu_version }}
+    container_name: {{ app_domain }}-mailu-front
+    restart: {{ app_container_restart_mode }}
+    logging:
+      driver: json-file
+    environment:
+      - ADMIN={{ mailu_admin }}
+      - WEB_ADMIN={{ mailu_web_admin }}
+      - WEB_WEBMAIL={{ mailu_web_webmail }}
+      - WEBDAV={{ mailu_webdav }}
+      - HOSTNAMES={{ mailu_hostnames }}
+      - TLS_FLAVOR={{ mailu_tls_flavor }}
+      - MESSAGE_SIZE_LIMIT={{ mailu_message_size_limit }}
+    ports:
+      - 110:110
+      - 143:143
+      - 993:993
+      - 995:995
+      - 25:25
+      - 465:465
+      - 587:587
+    volumes:
+      - {{ data_path_host }}/mailu/certs:/certs
+    networks:
+      backend:
+        aliases:
+          - front
+  mailu-imap:
+    image: mailu/dovecot:{{ mailu_version }}
+    container_name: {{ app_domain }}-mailu-imap
+    restart: {{ app_container_restart_mode }}
+    environment:
+      - DOMAIN={{ app_domain }}
+      - HOSTNAMES={{ mailu_hostnames }}
+      - POSTMASTER={{ mailu_postmaster }}
+      - WEBMAIL={{ mailu_webmail }}
+      - RECIPIENT_DELIMITER={{ mailu_recipient_delimiter }}
+    volumes:
+      - {{ data_path_host }}/mailu/data:/data
+      - {{ data_path_host }}/mailu/mail:/mail
+      - {{ data_path_host }}/mailu/overrides:/overrides
+    depends_on:
+      - mailu-front
+    networks:
+      backend:
+        aliases:
+          - imap
+  mailu-smtp:
+    image: mailu/postfix:{{ mailu_version }}
+    container_name: {{ app_domain }}-mailu-smtp
+    restart: {{ app_container_restart_mode }}
+    environment:
+      - DOMAIN={{ app_domain }}
+      - HOSTNAMES={{ mailu_hostnames }}
+      - RELAYHOST={{ mailu_relayhost }}
+      - RELAYNETS={{ mailu_relaynets }}
+      - RECIPIENT_DELIMITER={{ mailu_recipient_delimiter }}
+      - MESSAGE_SIZE_LIMIT={{ mailu_message_size_limit }}
+    volumes:
+      - {{ data_path_host }}/mailu/data:/data
+      - {{ data_path_host }}/mailu/overrides:/overrides
+    depends_on:
+      - mailu-front
+    networks:
+      backend:
+        aliases:
+          - smtp
+  mailu-antispam:
+    image: mailu/rspamd:{{ mailu_version }}
+    container_name: {{ app_domain }}-mailu-antispam
+    volumes:
+      - {{ data_path_host }}/mailu/filter:/var/lib/rspamd
+      - {{ data_path_host }}/mailu/dkim:/dkim
+      - {{ data_path_host }}/mailu/overrides/rspamd:/etc/rspamd/override.d
+    depends_on:
+      - mailu-front
+    networks:
+      backend:
+        aliases:
+          - antispam
+  mailu-antivirus:
+    image: mailu/clamav:{{ mailu_version }}
+    container_name: {{ app_domain }}-mailu-antivirus
+    restart: {{ app_container_restart_mode }}
+    volumes:
+      - {{ data_path_host }}/mailu/filter:/data
+    networks:
+      backend:
+        aliases:
+          - antivirus
+  mailu-webdav:
+    image: mailu/{{ mailu_webdav }}:{{ mailu_version }}
+    container_name: {{ app_domain }}-mailu-webdav
+    restart: {{ app_container_restart_mode }}
+    volumes:
+      - {{ data_path_host }}/mailu/dav:/data
+    networks:
+      backend:
+        aliases:
+          - webdav
+  mailu-admin:
+    image: mailu/admin:{{ mailu_version }}
+    container_name: {{ app_domain }}-mailu-admin
+    restart: {{ app_container_restart_mode }}
+    environment:
+      - DOMAIN={{ app_domain }}
+      - HOSTNAMES={{ mailu_hostnames }}
+      - POSTMASTER={{ mailu_postmaster }}
+      - SECRET_KEY={{ mailu_secret_key }}
+      - AUTH_RATELIMIT={{ mailu_auth_ratelimit }}
+      - TLS_FLAVOR={{ mailu_tls_flavor }}
+      - DISABLE_STATISTICS={{ mailu_disable_statistics }}
+      - DMARC_RUA={{ mailu_dmarc_rua }}
+      - DMARC_RUF={{ mailu_dmarc_ruf }}
+      - WELCOME={{ mailu_welcome }}
+      - WELCOME_SUBJECT={{ mailu_welcome_subject }}
+      - WELCOME_BODY={{ mailu_welcome_body }}
+      - WEB_ADMIN={{ mailu_web_admin }}
+      - WEB_WEBMAIL={{ mailu_web_webmail }}
+      - WEBSITE={{ mailu_website }}
+      - WEBMAIL={{ mailu_webmail }}
+      - SITENAME={{ mailu_sitename }}
+      - PASSWORD_SCHEME={{ mailu_password_scheme }}
+      # - RECAPTCHA_PUBLIC_KEY={{ mailu_recaptcha_public_key }}
+      # - RECAPTCHA_PRIVATE_KEY={{ mailu_recaptcha_private_key }}
+    volumes:
+      - {{ data_path_host }}/mailu/data:/data
+      - {{ data_path_host }}/mailu/dkim:/dkim
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - redis
+    networks:
+      backend:
+        aliases:
+          - admin
+  mailu-webmail:
+    image: mailu/{{ mailu_webmail }}:{{ mailu_version }}
+    container_name: {{ app_domain }}-mailu-webmail
+    restart: {{ app_container_restart_mode }}
+    volumes:
+      - {{ data_path_host }}/mailu/webmail:/data
+    networks:
+      backend:
+        aliases:
+          - webmail
+  mailu-fetchmail:
+    image: mailu/fetchmail:{{ mailu_version }}
+    container_name: {{ app_domain }}-mailu-fetchmail
+    restart: {{ app_container_restart_mode }}
+    environment:
+      - FETCHMAIL_DELAY={{ mailu_fetchmail_delay }}
+    volumes:
+      - {{ data_path_host }}/mailu/data:/data
+    networks:
+      backend:
+        aliases:
+          - fetchmail
+
+{% endif %}
