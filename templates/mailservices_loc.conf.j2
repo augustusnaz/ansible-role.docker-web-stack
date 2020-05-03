@@ -1,16 +1,12 @@
 
 
 location /{% if app_backend %}mail/{% endif %} {
-    root /opt/postal/public;
-    gzip_static on;
-    gzip_proxied any;
+    # root /opt/postal/app/public;
 	client_max_body_size 50M;
 	try_files $uri $uri/index.html $uri.html @puma;
 }
 location /{% if app_backend %}mail/{% endif %}assets {
-    root /opt/postal/public;
-    gzip_static on;
-    gzip_proxied any;
+    # root /opt/postal/app/public;
 	add_header Cache-Control "public,max-age=3600,immutable";
 }
 location @puma {

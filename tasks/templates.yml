@@ -12,12 +12,12 @@
     src: .env
     dest: "{{ project_url }}/.env"
 
-- name: Template postal config
-  become: true
-  template:
-    src: postal.yml
-    dest: "{{ project_url }}/postal/postal.yml"
-  when: app_install_mailserver
+# - name: Template postal config
+#   become: true
+#   template:
+#     src: postal.yml
+#     dest: "{{ project_url }}/postal/postal.yml"
+#   when: app_install_mailserver
 
 - include_tasks: tasks/templates-nginx.yml
 

@@ -35,9 +35,6 @@ app_install_database: false
 # Install mail server
 app_install_mailserver: false
 
-# Rspamd WebUI password (required)
-rspamd_password: null
-
 # docker-postal version. Accepted values: `alpine`, `ubuntu`
 docker_postal_version: ubuntu
 postal_secret_key:
@@ -106,7 +103,7 @@ database_hostname: mariadb
 
 ### Docker Host IP ########################################
 # Enter your Docker Host IP (will be appended to /etc/hosts). Default is `10.0.75.1`
-# docker_host_ip: "10.0.75.1"
+docker_host_ip: "10.0.75.1"
 
 
 

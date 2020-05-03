@@ -5,15 +5,12 @@ networks:
     driver: {{ app_container_networks_driver }}
   backend:
     driver: {{ app_container_networks_driver }}
-    ipam:
-      config:
-        - subnet:  172.20.0.0/16
 
 
 volumes:
-  mariadb:
+  postal_app:
     driver: {{ volumes_driver }}
-  phpmyadmin:
+  postal_app_asset:
     driver: {{ volumes_driver }}
 
 
@@ -59,7 +56,6 @@ services:
       - {{ database_port }}:3306
     networks:
       backend:
-        ipv4_address: 172.20.0.3
         aliases:
           - {{ database_hostname }}
           - database
@@ -83,8 +79,8 @@ services:
       - {{ data_path_host }}/letsencrypt:/etc/letsencrypt
       - {{ data_path_host }}/certbot/www:/var/www/certbot
       - {{ app_code_path_host }}:/var/www/html
-      - static_assets:/opt/postal/public:ro
-      - postal_assets:/opt/postal/public/assets:ro
+      - postal_app:/opt/postal/app/public:ro
+      - postal_app_asset:/opt/postal/app/public/assets:ro
     ports:
       - {{ app_host_http_port }}:80
       - {{ app_host_https_port }}:443
@@ -168,6 +164,8 @@ services:
       - {{ app_code_path_host }}:{{ app_code_path_container }}
     ports:
       - {{ php_fpm_port }}:9000
+    extra_hosts:
+      - dockerhost:{{ docker_host_ip }}
     environment:
       - PHP_IDE_CONFIG={{ php_fpm_ide_config }}
       - DOCKER_TLS_VERIFY=1
@@ -189,7 +187,6 @@ services:
       - mariadb
     restart: {{ app_container_restart_mode }}
     networks:
-      - frontend
       - backend
 {% endif %}
 
@@ -213,34 +210,42 @@ services:
   postal:
     build:
       context: ./postal
-      dockerfile: Dockerfile{% if docker_postal_version != 'ubuntu' %}-{{ docker_postal_version }}{% endif %}
+      # dockerfile: Dockerfile{% if docker_postal_version != 'ubuntu' %}-{{ docker_postal_version }}{% endif %}
       # escapes belore from the above template
-      args:
-        - DB_HOST={{ database_hostname }}
-        - POSTAL_FNAME={{ postal_admin_fname }}
-        - POSTAL_LNAME={{ postal_admin_lname }}
-        - POSTAL_PASSWORD={{ postal_admin_password }}
-        - POSTAL_EMAIL={{ postal_admin_email }}
-    image: postal:{{ docker_postal_version }}
+    image: postal
+    # image: postal:{{ docker_postal_version }}
     container_name: {{ app_domain }}-postal
+    environment:
+      - WEB_DOMAIN={{ mailserver_hostname }}.{{ app_domain }}
+      - DOMAIN={{ mailserver_hostname }}.{{ app_domain }}
+      - DB_HOST={{ database_hostname }}
+      - DB_USERNAME={{ database_user }}
+      - DB_PASSWORD={{ database_root_password }}
+      - DB_DATABASE={{ mailserver_database }}
+      - POSTAL_FNAME={{ postal_admin_fname }}
+      - POSTAL_LNAME={{ postal_admin_lname }}
+      - POSTAL_PASSWORD={{ postal_admin_password }}
+      - POSTAL_EMAIL={{ postal_admin_email }}
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_USER={{ rabbitmq_default_user }}
+      - RABBITMQ_PASS={{ rabbitmq_default_pass }}
+      - RABBITMQ_VHOST=/{{ rabbitmq_default_vhost }}
     volumes:
       - {{ log_path }}/postal/:/opt/postal/log
-      - {{ data_path_host }}/postal/templates/:/templates
-      - {{ project_url }}/postal/postal.yml:/opt/postal/config/postal.yml
-      - static_assets:/opt/postal/public
-      - postal_assets:/opt/postal/public/assets
+      - postal_app:/opt/postal/app/public
+      - postal_app_asset:/opt/postal/app/public/assets
     depends_on:
       - mariadb
       - rabbitmq
     ports:
       - 25:25       # SMTP                - Required
-      - 110:110     # POP3       STARTTLS - Optional - For webmails/desktop clients
-      - 143:143     # IMAP       STARTTLS - Optional - For webmails/desktop clients
-      - 465:465     # SMTPS      SSL/TLS  - Optional - Enabled for compatibility reason, otherwise disabled
-      - 587:587     # Submission STARTTLS - Optional - For webmails/desktop clients
-      - 993:993     # IMAPS      SSL/TLS  - Optional - For webmails/desktop clients
-      - 995:995     # POP3S      SSL/TLS  - Optional - For webmails/desktop clients
-      - 4190:4190   # SIEVE      STARTTLS - Optional - Recommended for mail filtering
+      # - 110:110     # POP3       STARTTLS - Optional - For webmails/desktop clients
+      # - 143:143     # IMAP       STARTTLS - Optional - For webmails/desktop clients
+      # - 465:465     # SMTPS      SSL/TLS  - Optional - Enabled for compatibility reason, otherwise disabled
+      # - 587:587     # Submission STARTTLS - Optional - For webmails/desktop clients
+      # - 993:993     # IMAPS      SSL/TLS  - Optional - For webmails/desktop clients
+      # - 995:995     # POP3S      SSL/TLS  - Optional - For webmails/desktop clients
+      # - 4190:4190   # SIEVE      STARTTLS - Optional - Recommended for mail filtering
     healthcheck:
       test: curl -sS http://127.0.0.1:5000 || exit 1
       interval: 5s
@@ -282,8 +287,3 @@ services:
       - backend
 
 {% endif %}
-
-
-volumes:
-  static_assets:
-  postal_assets:

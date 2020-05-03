@@ -11,7 +11,7 @@ Starts a set of docker services on docker servers.
 * Maria DB
 * phpMyAdmin
 * Redis
-* hardware/mailserver
+* [postal](https://github.com/postalhq/postal)
 * Certbot
 
 
@@ -19,7 +19,7 @@ Starts a set of docker services on docker servers.
 Requirements
 ------------
 
-Requires root acces, docker and docker-compose.
+Requires root access, docker and docker-compose.
 
 
 

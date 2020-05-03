@@ -1,5 +1,7 @@
 ---
 
+# - name: Ensure Pip is installed.
+  # package: name="{{ 'python3-pip' if python_version == 3 else 'python-pip' }}" state=present
 
 - name: Ensure docker-compose pip module
   become: true

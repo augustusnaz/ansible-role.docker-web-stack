@@ -19,8 +19,7 @@ map $http_x_forwarded_proto $fastcgi_param_https {
 }
 
 server {
-    listen 80 default_server;
-	listen [::]:80;
+    listen 80;
 
 	{% if nginx_ssl %}
     listen 443 ssl;
