@@ -1,12 +1,12 @@
 
 
 location /{% if app_backend %}mail/{% endif %} {
-    # root /opt/postal/app/public;
+    root /opt/postal/app/public;
 	client_max_body_size 50M;
 	try_files $uri $uri/index.html $uri.html @puma;
 }
 location /{% if app_backend %}mail/{% endif %}assets {
-    # root /opt/postal/app/public;
+    root /opt/postal/app/public;
 	add_header Cache-Control "public,max-age=3600,immutable";
 }
 location @puma {
@@ -19,7 +19,10 @@ location @puma {
 
 location /webmail/ {
 	proxy_pass http://mail.webmail/;
+	rewrite ^/webmail/?(.*)$ /$1 break;
+	# proxy_pass http://mail.webmail;
 	proxy_set_header Host $host;
 	proxy_set_header X-Real-IP $remote_addr;
 	proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
 }
+

@@ -78,7 +78,7 @@ services:
       - {{ log_path }}/nginx/:/var/log/nginx/
       - {{ data_path_host }}/letsencrypt:/etc/letsencrypt
       - {{ data_path_host }}/certbot/www:/var/www/certbot
-      - {{ app_code_path_host }}:/var/www/html
+      - {{ app_code_path_host }}:{{ app_code_path_container }}{{ app_code_container_flag }}
       - postal_app:/opt/postal/app/public:ro
       - postal_app_asset:/opt/postal/app/public/assets:ro
     ports:
@@ -160,8 +160,7 @@ services:
     container_name: {{ app_domain }}-php{{ php_version }}-fpm
     volumes:
       - ./php-fpm/php{{ php_version }}.ini:/usr/local/etc/php/php.ini
-      # - {{ app_code_path_host }}:{{ app_code_path_container }}{{ app_code_container_flag }}
-      - {{ app_code_path_host }}:{{ app_code_path_container }}
+      - {{ app_code_path_host }}:{{ app_code_path_container }}{{ app_code_container_flag }}
     ports:
       - {{ php_fpm_port }}:9000
     extra_hosts:
@@ -208,19 +207,15 @@ services:
 
 ### Mail ################################################
   postal:
-    build:
-      context: ./postal
-      # dockerfile: Dockerfile{% if docker_postal_version != 'ubuntu' %}-{{ docker_postal_version }}{% endif %}
-      # escapes belore from the above template
+    build: ./postal
     image: postal
-    # image: postal:{{ docker_postal_version }}
     container_name: {{ app_domain }}-postal
     environment:
-      - WEB_DOMAIN={{ mailserver_hostname }}.{{ app_domain }}
-      - DOMAIN={{ mailserver_hostname }}.{{ app_domain }}
-      - DB_HOST={{ database_hostname }}
-      - DB_USERNAME={{ database_user }}
-      - DB_PASSWORD={{ database_root_password }}
+      - WEB_HOST={{ mailserver_hostname }}.{{ app_domain }}
+      - MAIL_HOST={{ mailserver_hostname }}.{{ app_domain }}
+      - DB_HOST={{ postal_database_host }}
+      - DB_USERNAME={{ postal_database_username }}
+      - DB_PASSWORD={{ postal_database_password }}
       - DB_DATABASE={{ mailserver_database }}
       - POSTAL_FNAME={{ postal_admin_fname }}
       - POSTAL_LNAME={{ postal_admin_lname }}
@@ -229,7 +224,8 @@ services:
       - RABBITMQ_HOST=rabbitmq
       - RABBITMQ_USER={{ rabbitmq_default_user }}
       - RABBITMQ_PASS={{ rabbitmq_default_pass }}
-      - RABBITMQ_VHOST=/{{ rabbitmq_default_vhost }}
+      - RABBITMQ_VHOST={{ rabbitmq_default_vhost }}
+      - RAILS_SECRET_KEY={{ postal_secret_key }}
     volumes:
       - {{ log_path }}/postal/:/opt/postal/log
       - postal_app:/opt/postal/app/public
@@ -241,7 +237,7 @@ services:
       - 25:25       # SMTP                - Required
       # - 110:110     # POP3       STARTTLS - Optional - For webmails/desktop clients
       # - 143:143     # IMAP       STARTTLS - Optional - For webmails/desktop clients
-      # - 465:465     # SMTPS      SSL/TLS  - Optional - Enabled for compatibility reason, otherwise disabled
+      - 465:465     # SMTPS      SSL/TLS  - Optional - Enabled for compatibility reason, otherwise disabled
       # - 587:587     # Submission STARTTLS - Optional - For webmails/desktop clients
       # - 993:993     # IMAPS      SSL/TLS  - Optional - For webmails/desktop clients
       # - 995:995     # POP3S      SSL/TLS  - Optional - For webmails/desktop clients

@@ -34,9 +34,6 @@ app_install_database: false
 
 # Install mail server
 app_install_mailserver: false
-
-# docker-postal version. Accepted values: `alpine`, `ubuntu`
-docker_postal_version: ubuntu
 postal_secret_key:
 
 
@@ -189,6 +186,9 @@ postal_admin_fname: John
 postal_admin_lname: Doe
 postal_admin_password: p0stalpassw0rd
 postal_admin_email: johndoe@mail.com
+postal_database_host: "{{ database_hostname }}"   # Specify other host or use 127.0.0.1 for the container to install an internal sql server
+postal_database_username: "{{ database_user }}"
+postal_database_password: "{{ database_root_password }}"
 
 
 ### RabbitMQ #################################################
