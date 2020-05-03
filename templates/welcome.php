@@ -64,6 +64,7 @@
                 <div class="links">
                     <a href="http{% if app_enable_ssl %}s{% endif %}://{% if app_backend %}{{ app_backend }}{% else %}{{ mailserver_hostname }}{% endif %}.{{ app_domain }}{% if app_backend %}/mail{% endif %}">Mail</a>
                     <a href="http{% if app_enable_ssl %}s{% endif %}://{% if app_backend %}{{ app_backend }}{% else %}{{ mailserver_hostname }}{% endif %}.{{ app_domain }}/webmail">Webmail</a>
+                    <a href="http{% if app_enable_ssl %}s{% endif %}://{% if app_backend %}{{ app_backend }}{% else %}{{ mailserver_hostname }}{% endif %}.{{ app_domain }}/phpmyadmin">phpMyAdmin</a>
                     <a href="https://github.com/augustusnaz/ansible-role.docker-web-stack.git">Repository</a>
                 </div>
             </div>
